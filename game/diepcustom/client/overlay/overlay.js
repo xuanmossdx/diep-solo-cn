@@ -1,0 +1,295 @@
+/*
+    DiepCustom - custom tank game server that shares diep.io's WebSocket protocol
+    Copyright (C) 2022 ABCxFF (github.com/ABCxFF)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program. If not, see <https://www.gnu.org/licenses/>
+*/
+
+/**
+ * 坦克大乱斗 · 中文覆盖层
+ * - 图鉴：全部坦克中文名 + 介绍 + 进化链（数据源 /api/tanks 真实定义）
+ * - 进化树：五系分支中文视图
+ * - 复活助手：死亡界面"保留等级复活 / 从零重新开始"两个按钮（重新开始 = 出生名带标记，服务端识别）
+ * 不修改 WASM；所有面板为 HTML 覆盖层，触屏可操作（触点 ≥44px）。
+ */
+(function () {
+    "use strict";
+
+    // ---------- 中文数据（id 与 /api/tanks 的 TankDefinitions.json 一致） ----------
+    var ZH = {
+        0: "基础坦克", 1: "双管炮", 2: "三联炮", 3: "三重炮", 4: "四联坦克", 5: "八爪坦克",
+        6: "狙击炮", 7: "机关枪", 8: "侧卫", 9: "三角艇", 10: "毁灭者", 11: "监督者",
+        12: "霸主", 13: "双侧卫", 14: "五重炮", 15: "刺客", 16: "清场者", 17: "死灵法师",
+        18: "三重双子", 19: "猎人", 20: "机枪手", 21: "潜行者", 22: "游侠", 23: "加速器",
+        24: "战斗机", 25: "混合体", 26: "经理", 27: "母舰", 28: "掠夺者", 29: "喷射器",
+        31: "陷阱手", 32: "陷阱机枪手", 33: "陷阱霸主", 34: "巨型陷阱手", 35: "三重陷阱手",
+        36: "粉碎者", 38: "地雷", 39: "自动机枪手", 40: "自动五型", 41: "自动三型",
+        42: "散射炮", 43: "水管炮", 44: "自动陷阱手", 45: "统治者", 46: "统治者", 47: "统治者",
+        48: "战列舰", 49: "湮灭者", 50: "自动粉碎者", 51: "尖刺", 52: "工厂", 54: "跳弹炮", 55: "火箭兵"
+    };
+
+    var DESC = {
+        0: "一切之始，属性均衡，15 级时进化选择最多。",
+        1: "双管交替开火，火力稳定，强攻系起点。",
+        2: "三根平行炮管同时射击，正面火力极强。",
+        3: "扇形三连发，覆盖面大，强攻系中期主力。",
+        4: "四向炮管全面覆盖，不怕偷袭。",
+        5: "八个方向同时开火，移动的火力刺猬。",
+        6: "射程与视野俱佳，风筝/陷阱/无人机三系之源。",
+        7: "弹幕密集压制近身敌人，精度较低。",
+        8: "前后双炮管攻守兼备，多面手路线起点。",
+        9: "尾部双炮推进，机动性出色。",
+        10: "巨型炮弹一击重创，后坐力还能用来位移。",
+        11: "指挥 8 架无人机，本体脆弱但操作上限极高。",
+        12: "无人机系的巅峰，8 架无人机压场。",
+        13: "前后各两根炮管，火力对称。",
+        14: "五连扇形弹幕，近身毁灭性的火力。",
+        15: "极致射程与视野，风筝流后期核心。",
+        16: "回合结束时合围全图的清场者，无人能挡。",
+        17: "把被消灭的方块变成自己的无人机军团。",
+        18: "三组双管炮覆盖大半圆，火力网密不透风。",
+        19: "双重炮管连环射击，兼具射程与命中率。",
+        20: "四根小炮管持续输出，稳定压制。",
+        21: "静止时隐身，暗杀型狙击坦克。",
+        22: "全游戏最远的射程与视野。",
+        23: "尾炮后坐疯狂加速，全游戏最快。",
+        24: "多炮管加尾推，攻守机动的全能型。",
+        25: "巨炮与无人机双持的重装单位。",
+        26: "无人机可脱离指挥自动作战。",
+        27: "模式特殊单位。",
+        28: "三重变焦视野，超远距精确猎杀。",
+        29: "持续喷射的高射速弹幕，近战火力之王。",
+        31: "布设陷阱封锁走位，区域控制专家。",
+        32: "陷阱与机枪双持，可攻可守。",
+        33: "陷阱与无人机双修的异色流派。",
+        34: "布设超大陷阱，一次封锁一条路。",
+        35: "三组陷阱发生器，把要道变成死亡走廊。",
+        36: "无炮管近战坦克，靠撞击杀敌，30 级由基础坦克直接进化。",
+        38: "静止时完全隐形的陷阱型坦克。",
+        39: "附带自动索敌炮塔的机枪手。",
+        40: "五个自动炮塔全向警戒。",
+        41: "三座自动炮塔围绕旋转。",
+        42: "一次倾泻大范围散射弹幕。",
+        43: "五管一线超高射速，持续输出之王。",
+        44: "自动布设陷阱的守场专家。",
+        45: "占点模式的要塞单位。", 46: "占点模式的要塞单位。", 47: "占点模式的要塞单位。",
+        48: "四组双联无人机发射器，无人机海量。",
+        49: "比毁灭者更大的终极炮弹。",
+        50: "附带自动炮塔的粉碎者。",
+        51: "撞击伤害极高的近战坦克。",
+        52: "生产自律小坦克作战的终极单位。",
+        54: "发射可在地面跳飞的炮弹。",
+        55: "发射可控火箭弹的重炮单位。"
+    };
+
+    var FAMILIES = [
+        { name: "双管系（强攻）", root: 1 },
+        { name: "狙击系（风筝/铺场/无人机）", root: 6 },
+        { name: "机关枪系（压制/重炮）", root: 7 },
+        { name: "侧卫系（机动/自动）", root: 8 },
+        { name: "粉碎系（撞击近战）", root: 36 }
+    ];
+
+    var SPECIAL_IDS = [0, 16, 27, 45, 46, 47]; // 基础坦克 + 地图特殊单位
+    var treeData = null; // {id: {def, children: []}}
+    var parentOf = {};
+
+    // ---------- 工具 ----------
+    function el(tag, cls, text) {
+        var node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+    }
+
+    function zhName(def) {
+        return ZH[def.id] || def.name || "未知坦克";
+    }
+
+    function chainOf(id) {
+        var path = [id];
+        var cur = id;
+        while (parentOf[cur] != null) {
+            cur = parentOf[cur];
+            path.unshift(cur);
+        }
+        return path.map(function (tid) { return (treeData[tid] && zhName(treeData[tid].def)) || "?"; }).join(" → ");
+    }
+
+    // ---------- 面板构建 ----------
+    function buildPanel(title, bodyBuilder) {
+        var panel = el("div", "tldc-panel");
+        var head = el("div", "tldc-head");
+        var h2 = el("h2", null, title);
+        var close = el("button", null, "关闭");
+        close.addEventListener("click", function () { panel.classList.remove("on"); });
+        head.appendChild(h2);
+        head.appendChild(close);
+        var body = el("div", "tldc-body");
+        bodyBuilder(body);
+        panel.appendChild(head);
+        panel.appendChild(body);
+        document.body.appendChild(panel);
+        return panel;
+    }
+
+    function buildCodex(tanks) {
+        return buildPanel("坦克图鉴（共 " + tanks.length + " 辆）", function (body) {
+            var tabs = el("div", "tldc-tabs");
+            var grid = el("div", "tldc-grid");
+            var cats = ["全部"].concat(FAMILIES.map(function (f) { return f.name.split("（")[0]; })).concat(["特殊单位"]);
+            cats.forEach(function (cat, i) {
+                var tab = el("span", i === 0 ? "on" : null, cat);
+                tab.addEventListener("click", function () {
+                    tabs.querySelectorAll("span").forEach(function (s) { s.classList.remove("on"); });
+                    tab.classList.add("on");
+                    renderGrid(grid, tanks, cat);
+                });
+                tabs.appendChild(tab);
+            });
+            body.appendChild(tabs);
+            body.appendChild(grid);
+            renderGrid(grid, tanks, "全部");
+        });
+    }
+
+    function familyOf(id) {
+        for (var i = 0; i < FAMILIES.length; ++i) {
+            if (inFamily(FAMILIES[i].root, id)) return FAMILIES[i].name.split("（")[0];
+        }
+        return "特殊单位";
+    }
+
+    function inFamily(root, id) {
+        if (root === id) return true;
+        var node = treeData[id];
+        while (node && parentOf[node.def.id] != null) {
+            if (parentOf[node.def.id] === root) return true;
+            node = treeData[parentOf[node.def.id]];
+        }
+        return false;
+    }
+
+    function renderGrid(grid, tanks, cat) {
+        grid.innerHTML = "";
+        tanks.forEach(function (def) {
+            var fam = familyOf(def.id);
+            if (cat !== "全部" && fam !== cat) return;
+            var card = el("div", "tldc-card");
+            var h4 = el("h4", null, zhName(def));
+            h4.appendChild(el("em", null, "Lv." + def.levelRequirement + " 解锁"));
+            card.appendChild(h4);
+            card.appendChild(el("p", null, DESC[def.id] || ""));
+            card.appendChild(el("div", "chain", chainOf(def.id)));
+            grid.appendChild(card);
+        });
+    }
+
+    function buildTree() {
+        return buildPanel("进化树（按流派查看）", function (body) {
+            FAMILIES.forEach(function (fam) {
+                var box = el("div", "tldc-family");
+                box.appendChild(el("h3", null, fam.name));
+                var list = el("ul", "tldc-branch");
+                renderBranch(list, fam.root, 0);
+                box.appendChild(list);
+                body.appendChild(box);
+            });
+            var note = el("p", null, "说明：绿色等级即进化所需等级；进化时游戏画面会出现可选按钮，也可以对照本树查看中文名。");
+            note.style.cssText = "color:#9d9dc8;font-size:12px";
+            body.appendChild(note);
+        });
+    }
+
+    function renderBranch(list, id, depth) {
+        var node = treeData[id];
+        if (!node) return;
+        var li = el("li");
+        li.appendChild(el("b", null, zhName(node.def)));
+        li.appendChild(el("small", null, "Lv." + node.def.levelRequirement + " · " + (DESC[id] || "")));
+        list.appendChild(li);
+        node.children.forEach(function (childId) {
+            var sub = el("ul", "tldc-branch");
+            renderBranch(sub, childId, depth + 1);
+            li.appendChild(sub);
+        });
+    }
+
+    // ---------- 复活助手（死亡界面专用） ----------
+    function pressEnter() {
+        if (!window.input) return;
+        window.input.keyDown(13);
+        window.input.keyUp(13);
+    }
+
+    function spawnWithName(name) {
+        var box = document.getElementById("textInput");
+        if (box) box.value = name;
+        pressEnter();
+    }
+
+    // ---------- 启动 ----------
+    function start() {
+        var bar = el("div");
+        bar.id = "tldc-bar";
+
+        var codexBtn = el("button", null, "图鉴");
+        var treeBtn = el("button", null, "进化树");
+        bar.appendChild(codexBtn);
+        bar.appendChild(treeBtn);
+        document.body.appendChild(bar);
+
+        var respawn = el("div");
+        respawn.id = "tldc-respawn";
+        var keepBtn = el("button", "primary", "复活（保留等级）");
+        var restartBtn = el("button", null, "重新开始（清零等级）");
+        keepBtn.addEventListener("click", function () { spawnWithName(lastName); });
+        restartBtn.addEventListener("click", function () { spawnWithName(lastName + "(重新开始)"); });
+        respawn.appendChild(keepBtn);
+        respawn.appendChild(restartBtn);
+        document.body.appendChild(respawn);
+
+        // 记住玩家名：从输入框实时读取
+        var lastName = "";
+        setInterval(function () {
+            var box = document.getElementById("textInput");
+            var v = box && box.value ? box.value : "";
+            if (v && v.indexOf("(重新开始)") === -1) lastName = v;
+        }, 1000);
+
+        fetch("/api/tanks").then(function (r) { return r.json(); }).then(function (defs) {
+            treeData = {};
+            defs.forEach(function (def) {
+                if (def && def.id != null) treeData[def.id] = { def: def, children: [] };
+            });
+            defs.forEach(function (def) {
+                if (!def || def.id == null) return;
+                (def.upgrades || []).forEach(function (cid) {
+                    if (treeData[cid]) {
+                        treeData[def.id].children.push(cid);
+                        if (parentOf[cid] == null) parentOf[cid] = def.id;
+                    }
+                });
+            });
+            var playable = defs.filter(function (d) { return d && d.id != null && SPECIAL_IDS.indexOf(d.id) === -1; });
+            var codex = buildCodex(playable);
+            var tree = buildTree();
+            codexBtn.addEventListener("click", function () { codex.classList.add("on"); });
+            treeBtn.addEventListener("click", function () { tree.classList.add("on"); });
+        });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+})();

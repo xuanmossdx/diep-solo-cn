@@ -1,0 +1,78 @@
+/*
+    坦克大乱斗 · 中文覆盖层样式（手机/平板/桌面响应式）
+*/
+#tldc-bar {
+    position: fixed; top: 8px; right: 8px; z-index: 40;
+    display: flex; gap: 8px;
+}
+#tldc-bar button {
+    min-width: 44px; min-height: 36px;
+    background: rgba(20,20,42,.85); color: #ffde43;
+    border: 2px solid #44448a; border-radius: 10px;
+    font-size: 14px; font-weight: bold; font-family: "Microsoft YaHei", sans-serif;
+    cursor: pointer; padding: 4px 12px;
+}
+#tldc-bar button:active { background: #ffde43; color: #333; }
+
+#tldc-respawn {
+    position: fixed; bottom: 12px; right: 8px; z-index: 40;
+    display: flex; flex-direction: column; gap: 8px;
+}
+#tldc-respawn button {
+    min-width: 150px; min-height: 44px;
+    background: rgba(20,20,42,.85); color: #e8e8ff;
+    border: 2px solid #44448a; border-radius: 12px;
+    font-size: 14px; font-weight: bold; font-family: "Microsoft YaHei", sans-serif;
+    cursor: pointer; padding: 8px 12px;
+}
+#tldc-respawn button.primary { border-color: #8ac255; color: #9ade9f; }
+
+.tldc-panel {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(10,10,25,.72);
+    display: none; flex-direction: column;
+}
+.tldc-panel.on { display: flex; }
+.tldc-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; background: #14142a;
+}
+.tldc-head h2 { color: #ffde43; font-size: 18px; margin: 0; flex: 1; font-family: "Microsoft YaHei", sans-serif; }
+.tldc-head button {
+    background: #f14e54; color: #fff; border: 0; border-radius: 8px;
+    min-width: 44px; min-height: 36px; font-size: 14px; cursor: pointer;
+}
+.tldc-body {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 14px; color: #e8e8ff; font-family: "Microsoft YaHei", sans-serif;
+}
+.tldc-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.tldc-tabs span {
+    background: #252547; border: 1px solid #44448a; color: #9d9dc8;
+    padding: 7px 14px; border-radius: 20px; font-size: 13px; cursor: pointer;
+}
+.tldc-tabs span.on { background: #ffde43; color: #333; border-color: #ffde43; font-weight: bold; }
+
+.tldc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.tldc-card {
+    background: #252547; border: 1px solid #44448a; border-radius: 12px; padding: 12px;
+}
+.tldc-card h4 { margin: 0 0 6px; font-size: 15px; color: #fff; }
+.tldc-card h4 em {
+    font-style: normal; font-size: 11px; color: #333; background: #ffde43;
+    border-radius: 10px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px;
+}
+.tldc-card p { margin: 4px 0 0; font-size: 12px; line-height: 1.6; color: #9d9dc8; }
+.tldc-card .chain { font-size: 11px; color: #7a7ab0; margin-top: 6px; }
+
+.tldc-family { background: #202040; border: 1px solid #44448a; border-radius: 14px; padding: 12px; margin-bottom: 14px; }
+.tldc-family h3 { margin: 0 0 8px; color: #ffde43; font-size: 15px; }
+.tldc-branch { margin: 0; padding-left: 18px; list-style: none; border-left: 2px solid #44448a; }
+.tldc-branch li { margin: 4px 0; font-size: 13px; }
+.tldc-branch li b { color: #fff; }
+.tldc-branch li small { color: #9d9dc8; margin-left: 6px; }
+
+@media (max-width: 640px) {
+    .tldc-grid { grid-template-columns: 1fr 1fr; }
+    #tldc-bar button { font-size: 12px; padding: 4px 8px; }
+}

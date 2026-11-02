@@ -138,8 +138,8 @@ export const soloBotRespawnMinTicks = 25 * 5;
 /** AI 坦克重生最大间隔（tick） */
 export const soloBotRespawnMaxTicks = 25 * 10;
 
-/** AI 坦克出生等级 */
-export const soloBotStartLevel = 15;
+/** AI 坦克出生等级：阵亡补充的新 AI 和清场后的 AI 都从零（1 级）开始 */
+export const soloBotStartLevel = 1;
 
 /** 清场合围时长（tick），之后新一局开始 */
 export const soloClosingTicks = 25 * 24;

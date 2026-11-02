@@ -23,6 +23,7 @@ import GameServer from "../Game";
 import Client from "../Client";
 
 import ArenaEntity, { ArenaState } from "../Native/Arena";
+import { Entity } from "../Native/Entity";
 import ShapeManager from "../Misc/ShapeManager";
 import TankBody from "../Entity/Tank/TankBody";
 import ArenaCloser from "../Entity/Misc/ArenaCloser";
@@ -119,7 +120,7 @@ export default class SoloFFAArena extends ArenaEntity {
         this.lastAnnouncedSecond = -1;
     }
 
-    /** 新一局：解除关闭状态、重置回合计时、刷新全部 bot */
+    /** 新一局：解除关闭状态、重置回合计时、刷新全部 bot；所有玩家的"复活保留等级"一并清零（清场 = 全员从零开始） */
     private resetRound() {
         this.closing = false;
         this.state = ArenaState.OPEN;
@@ -129,7 +130,14 @@ export default class SoloFFAArena extends ArenaEntity {
         this.roundTicks = config.soloRoundTicks;
         this.lastAnnouncedSecond = -1;
 
-        this.game.broadcastMessage("新的一局开始！祝你好运。", 0x37F554, 5000, "newRound");
+        // 清场清零所有人等级：玩家下一次复活从 1 级开始（bot 已由 BotManager.reset 全部从零生成）
+        for (const client of this.game.clients) {
+            const camera = client.camera;
+            if (!camera || !Entity.exists(camera)) continue;
+            camera.cameraData.respawnLevel = 1;
+        }
+
+        this.game.broadcastMessage("新的一局开始！所有人的等级已清零，从零开始吧。", 0x37F554, 6000, "newRound");
     }
 
     /**

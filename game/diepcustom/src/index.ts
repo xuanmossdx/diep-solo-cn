@@ -25,7 +25,8 @@ import GameServer from "./Game";
 import TankDefinitions from "./Const/TankDefinitions";
 import Achievements from "./Const/Achievements";
 import { commandDefinitions } from "./Const/Commands";
-import { ColorsHexCode } from "./Const/Enums";
+import { ColorsHexCode, StatCount } from "./Const/Enums";
+import { TankCount } from "./Const/TankDefinitions";
 
 import FFAArena from "./Gamemodes/FFA";
 import SandboxArena from "./Gamemodes/Sandbox";
@@ -115,6 +116,13 @@ app.get("/*", (res, req) => {
             case "/colors":
                 res.writeStatus("200 OK").end(JSON.stringify(ColorsHexCode));
                 return;
+            case "/xors":
+                // 供中文覆盖层（图鉴/进化树）发送标准 TankUpgrade/StatUpgrade 包使用
+                res.writeStatus("200 OK").end(JSON.stringify({
+                    tankXor: config.magicNum % TankCount,
+                    statXor: config.magicNum % StatCount
+                }));
+                return;
             case "/achievements":
                 res.writeStatus("200 OK").end(JSON.stringify(Achievements));
                 return;
@@ -124,6 +132,18 @@ app.get("/*", (res, req) => {
     if (ENABLE_CLIENT) {
         let file: string | null = null;
         let contentType = "text/html"
+
+        // 中文覆盖层（图鉴/进化树/复活助手）静态资源
+        if (req.getUrl().startsWith("/overlay/")) {
+            const overlayPath = config.clientLocation + req.getUrl();
+            if (fs.existsSync(overlayPath) && fs.statSync(overlayPath).isFile()) {
+                const isCss = overlayPath.endsWith(".css");
+                res.writeHeader("Content-Type", (isCss ? "text/css" : "application/javascript") + "; charset=utf-8");
+                res.writeStatus("200 OK").end(fs.readFileSync(overlayPath));
+                return;
+            }
+        }
+
         switch (req.getUrl()) {
             case "/":
                 file = config.clientLocation + "/index.html";

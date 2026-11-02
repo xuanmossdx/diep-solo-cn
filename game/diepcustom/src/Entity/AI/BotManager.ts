@@ -116,10 +116,24 @@ export class BotManager {
         return flow ?? rollFlowBag(1)[0];
     }
 
-    /** 不重复取名：池子顺序轮转 */
+    /** 不重复取名：优先取未被存活 bot 占用的名字 */
     private nextName(): string {
-        const name = BOT_NAMES[this.nameCursor % BOT_NAMES.length];
-        this.nameCursor = (this.nameCursor + 1 + Math.floor(Math.random() * 3)) % BOT_NAMES.length;
-        return name;
+        const used = new Set<string>();
+        for (const record of this.bots) {
+            if (record.respawnAtTick < 0 && Entity.exists(record.tank) && record.tank.hash !== 0) {
+                used.add(record.tank.nameData.values.name);
+            }
+        }
+        for (let i = 0; i < BOT_NAMES.length; ++i) {
+            const candidate = BOT_NAMES[(this.nameCursor + i) % BOT_NAMES.length];
+            if (!used.has(candidate)) {
+                this.nameCursor = (this.nameCursor + i + 1) % BOT_NAMES.length;
+                return candidate;
+            }
+        }
+        // 池子耗尽（bot 数 > 名字数）：加序号兜底
+        const fallback = BOT_NAMES[this.nameCursor % BOT_NAMES.length] + "-" + Math.floor(Math.random() * 90 + 10);
+        this.nameCursor = (this.nameCursor + 1) % BOT_NAMES.length;
+        return fallback;
     }
 }
