@@ -21,7 +21,11 @@
  *
  * 由客户端设置菜单（L 键）通过 GET /api/solo-settings?... 修改，
  * 单进程单机场景下直接挂在模块级单例上即可。
+ * 修改后自动写入 solo-settings.json（服务端根目录），重启服务器后依然生效。
  */
+import * as fs from "fs";
+import * as path from "path";
+
 export const soloSettings = {
     /** 无人机/工厂兵每管上限倍率（作用于所有 barrel definition.droneCount），1 = 原版 */
     droneMult: 1,
@@ -80,5 +84,33 @@ export function updateSoloSettings(patch: SoloSettingsPatch): string {
         msgs.push(`清场时间 ${soloSettings.roundMinutes} 分钟（下一局生效）`);
     }
 
+    if (msgs.length) saveToFile();
     return msgs.join("，") || "无改动";
 }
+
+// ---------- 持久化（重启保留） ----------
+
+const SETTINGS_FILE = path.join(__dirname, "..", "solo-settings.json");
+
+/** 启动时读取已保存的设置（文件不存在或损坏则用默认值） */
+function loadFromFile(): void {
+    try {
+        const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) as Record<string, unknown>;
+        const store = soloSettings as unknown as Record<string, unknown>;
+        for (const key of Object.keys(store)) {
+            if (key in data && typeof data[key] === typeof store[key]) store[key] = data[key];
+        }
+    } catch {
+        /* 首次运行或文件损坏：使用默认值 */
+    }
+}
+
+function saveToFile(): void {
+    try {
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(soloSettings, null, 2));
+    } catch (err) {
+        console.warn("[soloSettings] 设置保存失败", err);
+    }
+}
+
+loadFromFile();

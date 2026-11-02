@@ -155,6 +155,14 @@
         panel.appendChild(head);
         panel.appendChild(body);
         document.body.appendChild(panel);
+
+        // 面板事件隔离（冒泡阶段拦截）：按键/点击先走面板自己的控件逻辑，
+        // 到面板为止不再传给 window —— 游戏的 window.onkeydown 不再吞面板输入，
+        // 面板内部的按钮/输入框事件完全不受影响。
+        ["keydown", "keyup", "keypress", "pointerdown", "mousedown", "mouseup", "click", "wheel", "contextmenu"].forEach(function (t) {
+            panel.addEventListener(t, function (e) { e.stopPropagation(); });
+        });
+
         return panel;
     }
 
@@ -299,25 +307,6 @@
     }
 
     // ---------- 设置面板（L 键）：无人机上限 / 死灵法师 ----------
-    // 面板事件屏蔽层：游戏 WASM 在 document 级监听键盘/鼠标，会吞掉面板输入框的按键。
-    // 在 window 捕获阶段（最早）把发生在面板内的事件拦下，游戏不再响应，同时保留浏览器默认输入行为。
-    (function installPanelShield() {
-        function inPanel(target) {
-            var p = target;
-            while (p) {
-                if (p.classList && p.classList.contains("tldc-panel")) return true;
-                p = p.parentElement;
-            }
-            return false;
-        }
-        function shield(e) {
-            if (inPanel(e.target)) e.stopPropagation();
-        }
-        ["keydown", "keyup", "keypress", "pointerdown", "mousedown", "mouseup", "click", "wheel"].forEach(function (t) {
-            window.addEventListener(t, shield, true);
-        });
-    })();
-
     function buildSettings() {
         var status;
 
@@ -325,6 +314,10 @@
             var i = el("input");
             i.type = type; i.min = minv; i.max = maxv; i.step = stepv;
             i.style.cssText = "width:90px;min-height:36px;background:#14142a;color:#fff;border:2px solid #44448a;border-radius:8px;padding:2px 6px;font-size:14px";
+            // 聚焦输入框时释放游戏按键（resetKeys），避免打字时坦克还在动 / 按键卡住
+            i.addEventListener("focus", function () {
+                try { if (window.input && window.input.blur) window.input.blur(); } catch (e) {}
+            });
             return i;
         }
 
@@ -390,10 +383,12 @@
             row("资源（方块）数量倍率（0.5~3，全场生效，即时生效）", stepper(shapeInput, 0.5));
             row("清场回合时长·分钟（5~60，坦克大乱斗专用，下一局生效）", stepper(roundInput, 5));
 
-            var apply = el("button", "primary", "应用");
-            apply.style.cssText = "min-height:44px;padding:8px 24px;background:#8ac255;color:#222;border:0;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer";
+            var applyRow = el("div");
+            applyRow.style.cssText = "display:flex;align-items:center;gap:14px;margin-top:6px";
+            var apply = el("button", "primary", "应 用");
+            apply.style.cssText = "min-height:44px;padding:8px 32px;background:#8ac255;color:#222;border:0;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer";
             status = el("div");
-            status.style.cssText = "color:#9ade9f;font-size:13px;margin-top:8px;min-height:18px";
+            status.style.cssText = "flex:1;color:#9ade9f;font-size:15px;font-weight:bold;min-height:20px";
             apply.addEventListener("click", function () {
                 var url = "/api/solo-settings?droneMult=" + encodeURIComponent(multInput.value || "1")
                     + "&necroMax=" + encodeURIComponent(necroInput.value || "0")
@@ -402,11 +397,12 @@
                     + "&sm=" + encodeURIComponent(shapeInput.value || "2")
                     + "&rm=" + encodeURIComponent(roundInput.value || "30");
                 fetch(url).then(function (r) { return r.json(); }).then(function (res) {
-                    status.textContent = res.msg || "已应用";
-                }).catch(function () { status.textContent = "应用失败"; });
+                    status.textContent = "✓ " + (res.msg || "已应用");
+                }).catch(function () { status.textContent = "✗ 应用失败"; });
             });
-            body.appendChild(apply);
-            body.appendChild(status);
+            applyRow.appendChild(apply);
+            applyRow.appendChild(status);
+            body.appendChild(applyRow);
         });
 
         // 每次打开面板时刷新当前值

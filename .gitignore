@@ -14,3 +14,6 @@ Thumbs.db
 
 # 调试用二进制（WASM 实际从官方 CDN 拉取后在内存中汉化，此文件不参与运行）
 game/diepcustom/client/build_patched.wasm
+
+# 用户本地设置（L 键菜单修改后自动生成，重启保留）
+game/diepcustom/solo-settings.json
