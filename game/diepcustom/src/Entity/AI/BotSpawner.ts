@@ -19,10 +19,13 @@
 import GameServer from "../../Game";
 import ArenaEntity from "../../Native/Arena";
 import { CameraEntity } from "../../Native/Camera";
-import { AI, Inputs } from "../AI";
+import { Inputs } from "../AI";
 import TankBody from "../Tank/TankBody";
 import * as config from "../../config";
 import { Tank } from "../../Const/Enums";
+
+import { BotBrain } from "./BotBrain";
+import { FLOWS, FlowDef, pickDifficulty } from "./BotBuilds";
 
 /**
  * 坦克大乱斗 · AI 坦克生成器
@@ -35,9 +38,10 @@ export class BotSpawner {
      * 生成一台 AI 坦克。
      * @param arena 所属竞技场（取其 game 与出生点）
      * @param name 显示昵称（中文）
-     * @returns 创建的坦克与其 AI 实例
+     * @param flow 指定流派（来自 BotManager 的本局配额袋）
+     * @returns 创建的坦克与其行为层实例
      */
-    public static spawnBot(arena: ArenaEntity, name: string): { tank: TankBody; ai: AI } {
+    public static spawnBot(arena: ArenaEntity, name: string, flow: FlowDef): { tank: TankBody; ai: BotBrain } {
         const game = arena.game;
         const camera = new CameraEntity(game);
         const tank = new TankBody(game, camera, new Inputs());
@@ -52,9 +56,10 @@ export class BotSpawner {
         tank.positionData.values.x = pos.x;
         tank.positionData.values.y = pos.y;
 
-        // 基础 AI：索敌 + 瞄准 + 移动（P3 由 BotBrain 包装扩展）
-        const ai = new AI(tank);
-        ai.viewRange = 1700; // 与真人屏幕视野一致，不开雷达
+        // 行为层：随机难度档 + 指定流派（无人机流按难度档准入，不准入时降级为风筝流）
+        const diff = pickDifficulty();
+        if (flow.key === "drone" && !diff.allowDrone) flow = FLOWS.kite;
+        const ai = new BotBrain(tank, flow, diff);
         tank.inputs = ai.inputs;
 
         return { tank, ai };

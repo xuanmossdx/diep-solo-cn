@@ -317,7 +317,12 @@ export default class TankBody extends LivingEntity implements BarrelBase {
         if (!animate && Entity.exists(this.cameraEntity)) {
             if (this.cameraEntity.cameraData.player === this) {
                 this.cameraEntity.cameraData.deathTick = this.game.tick;
-                this.cameraEntity.cameraData.respawnLevel = Math.min(Math.max(this.cameraEntity.cameraData.values.level - 1, 1), Math.floor(Math.sqrt(this.cameraEntity.cameraData.values.level) * 3.2796));
+                // 坦克大乱斗（solo）：死亡后保留完整等级与加点复活；
+                // 其他模式沿用官方降级重生公式
+                const level = this.cameraEntity.cameraData.values.level;
+                this.cameraEntity.cameraData.respawnLevel = this.game.gamemode === "solo"
+                    ? Math.max(1, level)
+                    : Math.min(Math.max(level - 1, 1), Math.floor(Math.sqrt(level) * 3.2796));
             }
 
             // Wipe this nonsense

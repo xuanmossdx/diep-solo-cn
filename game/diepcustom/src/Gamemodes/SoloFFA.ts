@@ -18,8 +18,9 @@
 
 import * as config from "../config";
 import { scoreboardUpdateInterval } from "../config";
-import { ArenaFlags } from "../Const/Enums";
+import { ArenaFlags, StatCount } from "../Const/Enums";
 import GameServer from "../Game";
+import Client from "../Client";
 
 import ArenaEntity, { ArenaState } from "../Native/Arena";
 import ShapeManager from "../Misc/ShapeManager";
@@ -45,6 +46,9 @@ class SoloShapeManager extends ShapeManager {
  */
 export default class SoloFFAArena extends ArenaEntity {
     static override GAMEMODE_ID: string = "solo";
+
+    /** 出生名携带此标记 = 玩家选择"重新开始"（等级与加点清零），标记本身会被剥除 */
+    private static RESTART_MARKER = "(重新开始)";
 
     public botManager: BotManager;
 
@@ -126,6 +130,28 @@ export default class SoloFFAArena extends ArenaEntity {
         this.lastAnnouncedSecond = -1;
 
         this.game.broadcastMessage("新的一局开始！祝你好运。", 0x37F554, 5000, "newRound");
+    }
+
+    /**
+     * 覆写：处理"重新开始"标记后按 FFA 方式落位。
+     * 死亡复活的两种模式（服务端支持，P5 出 UI 按钮）：
+     * - 保留等级复活（默认）：TankBody.destroy 中 solo 分支 respawnLevel = 完整等级；
+     * - 重新开始：出生名带 "(重新开始)" 标记 → 等级/加点清零。
+     */
+    public spawnPlayer(tank: TankBody, client: Client) {
+        const name = tank.nameData.values.name;
+        if (name.includes(SoloFFAArena.RESTART_MARKER)) {
+            tank.nameData.values.name = name.split(SoloFFAArena.RESTART_MARKER)[0].trim() || "无名坦克手";
+
+            const cam = tank.cameraEntity.cameraData;
+            for (let i = 0; i < StatCount; ++i) cam.values.statLevels.values[i] = 0;
+            cam.values.statsAvailable = 0;
+            tank.cameraEntity.setLevel(1);
+
+            client.notify("已重新开始：等级与加点已重置。", 0x37F554, 5000, "restart");
+        }
+
+        super.spawnPlayer(tank, client);
     }
 
     /**

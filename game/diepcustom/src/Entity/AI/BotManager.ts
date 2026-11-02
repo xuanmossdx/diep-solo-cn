@@ -21,6 +21,7 @@ import { Entity } from "../../Native/Entity";
 import TankBody from "../Tank/TankBody";
 import * as config from "../../config";
 import * as util from "../../util";
+import { FlowDef, pickDifficulty, rollFlowBag } from "./BotBuilds";
 
 import { BotSpawner } from "./BotSpawner";
 
@@ -52,9 +53,12 @@ export class BotManager {
     private arena: ArenaEntity;
     private bots: BotRecord[] = [];
     private nameCursor = Math.floor(Math.random() * BOT_NAMES.length);
+    /** 本局流派配额袋：各流派数量每局随机（rollFlowBag 多项式抽取） */
+    private flowBag: FlowDef[] = [];
 
     public constructor(arena: ArenaEntity) {
         this.arena = arena;
+        this.flowBag = rollFlowBag(config.soloBotCount);
     }
 
     /** 每 tick 调用：补足数量、处理重生 */
@@ -68,13 +72,13 @@ export class BotManager {
                 + Math.floor(Math.random() * (config.soloBotRespawnMaxTicks - config.soloBotRespawnMinTicks));
         }
 
-        // 补足 / 重生
+        // 补足 / 重生（从本局配额袋取流派，取空后按权重随机兜底）
         while (this.bots.length < config.soloBotCount) {
             this.bots.push(this.createBot(tick));
         }
         for (const record of this.bots) {
             if (record.respawnAtTick >= 0 && tick >= record.respawnAtTick) {
-                const fresh = BotSpawner.spawnBot(this.arena, this.nextName());
+                const fresh = BotSpawner.spawnBot(this.arena, this.nextName(), this.takeFlow());
                 record.tank = fresh.tank;
                 record.respawnAtTick = -1;
             }
@@ -92,17 +96,24 @@ export class BotManager {
         return alive;
     }
 
-    /** 回合重置：删除全部 bot，下一 tick 自动补齐 */
+    /** 回合重置：删除全部 bot，重抽流派配额，下一 tick 自动补齐 */
     public reset() {
         for (const record of this.bots) {
             if (Entity.exists(record.tank) && record.tank.hash !== 0) record.tank.delete();
         }
         this.bots = [];
+        this.flowBag = rollFlowBag(config.soloBotCount);
     }
 
     private createBot(tick: number): BotRecord {
-        const fresh = BotSpawner.spawnBot(this.arena, this.nextName());
+        const fresh = BotSpawner.spawnBot(this.arena, this.nextName(), this.takeFlow());
         return { tank: fresh.tank, name: "", respawnAtTick: -1 };
+    }
+
+    /** 从本局配额袋取一个流派；袋空则按权重随机兜底 */
+    private takeFlow(): FlowDef {
+        const flow = this.flowBag.pop();
+        return flow ?? rollFlowBag(1)[0];
     }
 
     /** 不重复取名：池子顺序轮转 */
