@@ -89,6 +89,11 @@ export default class ArenaEntity extends Entity implements TeamGroupEntity {
     /** Bot 出生时的分队钩子：团队模式覆写，默认无队伍（FFA 类） */
     public assignBotTeam(_tank: TankBody): void {}
 
+    /** 模式目标点钩子：bot 无近期目标时向该点移动（占点/守母舰/缩圈向心等），默认无 */
+    public getBotObjective(_tank: TankBody): { x: number; y: number } | null {
+        return null;
+    }
+
     public constructor(game: GameServer) {
         super(game);
 

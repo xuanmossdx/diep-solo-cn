@@ -91,6 +91,23 @@ export default class DominationArena extends ArenaEntity {
         TeamEntity.setTeam(randomFrom(this.teams), tank);
     }
 
+    /** 占点倾向：bot 无近期目标时前往最近的敌方占领塔 */
+    public override getBotObjective(tank: TankBody): { x: number; y: number } | null {
+        let best: { x: number; y: number } | null = null;
+        let bestDistSq = Infinity;
+        for (const dom of this.dominators) {
+            if (!Entity.exists(dom) || dom.relationsData.values.team === tank.relationsData.values.team) continue;
+            const dx = dom.positionData.values.x - tank.positionData.values.x;
+            const dy = dom.positionData.values.y - tank.positionData.values.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestDistSq) {
+                bestDistSq = d2;
+                best = { x: dom.positionData.values.x, y: dom.positionData.values.y };
+            }
+        }
+        return best;
+    }
+
     public decideTeam(client: Client): TeamEntity {
         const team =  this.playerTeamMap.get(client) || randomFrom(this.teams);
         this.playerTeamMap.set(client, team);

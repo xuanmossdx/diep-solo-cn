@@ -112,6 +112,11 @@ export default class SurvivalArena extends ArenaEntity {
         this.updateBounds(arenaSize, arenaSize);
     }
 
+    /** 生存倾向：缩圈到后期，bot 无近期目标时向中心靠拢 */
+    public override getBotObjective(_tank: TankBody): { x: number; y: number } | null {
+        return this.width < 8000 ? { x: 0, y: 0 } : null;
+    }
+
     public manageCountdown() {
         if (this.state === ArenaState.COUNTDOWN) {
             // 单机适配：bot 也计入开局人数（倒计时阶段 bot 尚未生成，按配置总数算），1 个真人即可成局

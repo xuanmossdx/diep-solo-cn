@@ -141,7 +141,7 @@ app.get("/*", (res, req) => {
                 // GET /api/solo-settings                -> 返回当前设置
                 // GET /api/solo-settings?droneMult=2&necroMax=20&tri=1&pent=1 -> 应用并返回
                 const q = (k: string) => req.getQuery(k);
-                const hasPatch = !!q("droneMult") || !!q("necroMax") || !!q("tri") || !!q("pent");
+                const hasPatch = !!q("droneMult") || !!q("necroMax") || !!q("tri") || !!q("pent") || !!q("sm") || !!q("rm");
                 if (hasPatch) {
                     const num = (v: string | undefined) => { if (!v) return undefined; const n = parseFloat(v); return isFinite(n) ? n : undefined; };
                     const flag = (v: string | undefined) => v == null ? undefined : v === "1";
@@ -149,7 +149,9 @@ app.get("/*", (res, req) => {
                         droneMult: num(q("droneMult")),
                         necroMaxPerBarrel: num(q("necroMax")),
                         necroClaimTriangle: flag(q("tri")),
-                        necroClaimPentagon: flag(q("pent"))
+                        necroClaimPentagon: flag(q("pent")),
+                        shapeMult: num(q("sm")),
+                        roundMinutes: num(q("rm"))
                     });
                     for (const g of GameServer.games) g.broadcastMessage(`设置已更新：${msg}`, 0x37F554, 5000, "soloSettings");
                     res.writeStatus("200 OK").end(JSON.stringify({ ok: true, msg, settings: soloSettings }));

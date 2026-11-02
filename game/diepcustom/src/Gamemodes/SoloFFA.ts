@@ -18,6 +18,7 @@
 
 import * as config from "../config";
 import { scoreboardUpdateInterval } from "../config";
+import { soloSettings } from "../soloSettings";
 import { ArenaFlags, StatCount } from "../Const/Enums";
 import GameServer from "../Game";
 import Client from "../Client";
@@ -54,8 +55,8 @@ export default class SoloFFAArena extends ArenaEntity {
 
     public botManager: BotManager;
 
-    /** 本局剩余 tick */
-    private roundTicks: number = config.soloRoundTicks;
+    /** 本局剩余 tick（时长可在设置菜单调整，resetRound 时读取最新值） */
+    private roundTicks: number = soloSettings.roundMinutes * config.tps * 60;
     /** 是否处于清场合围阶段 */
     private closing: boolean = false;
     /** 合围阶段剩余 tick，归零后开新局 */
@@ -127,7 +128,7 @@ export default class SoloFFAArena extends ArenaEntity {
         this.arenaData.flags &= ~ArenaFlags.noJoining;
 
         this.botManager.reset();
-        this.roundTicks = config.soloRoundTicks;
+        this.roundTicks = soloSettings.roundMinutes * config.tps * 60;
         this.lastAnnouncedSecond = -1;
 
         // 清场清零所有人等级：玩家下一次复活从 1 级开始（bot 已由 BotManager.reset 全部从零生成）
@@ -145,7 +146,7 @@ export default class SoloFFAArena extends ArenaEntity {
         return {
             closing: this.closing,
             secondsLeft: Math.ceil((this.closing ? this.closingTicks : this.roundTicks) / config.tps),
-            roundSeconds: Math.round(config.soloRoundTicks / config.tps)
+            roundSeconds: soloSettings.roundMinutes * 60
         };
     }
 

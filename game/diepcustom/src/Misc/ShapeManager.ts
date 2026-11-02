@@ -25,6 +25,7 @@ import Triangle from "../Entity/Shape/Triangle";
 import Square from "../Entity/Shape/Square";
 import AbstractShape from "../Entity/Shape/AbstractShape";
 import { removeFast } from "../util";
+import { soloSettings } from "../soloSettings";
 
 /**
  * Used to balance out shape count in the arena, as well
@@ -110,7 +111,10 @@ export default class ShapeManager {
     }
 
     public tick() {
-        for (let i = this.wantedShapes; i --> 0;) {
+        // 单机扩展：资源数量倍率（L 键设置实时可调；方块被击毁后下一 tick 即时补齐，无额外延迟）
+        const want = Math.round(this.wantedShapes * soloSettings.shapeMult);
+        if (this.shapes.length < want) this.shapes.length = want;
+        for (let i = want; i --> 0;) {
             const shape = this.shapes[i];
             // Alternatively, Entity.exists(shape), though this is probably faster
             if (!shape || shape.hash === 0) this.shapes[i] = this.spawnShape();

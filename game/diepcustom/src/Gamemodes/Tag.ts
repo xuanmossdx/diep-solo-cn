@@ -101,6 +101,11 @@ export default class TagArena extends ArenaEntity {
     public override assignBotTeam(tank: TankBody): void {
         TeamEntity.setTeam(randomFrom(this.teams), tank);
     }
+
+    /** 捉人倾向：地图持续缩小，bot 无近期目标时向中心靠拢，避免被边界清掉 */
+    public override getBotObjective(_tank: TankBody): { x: number; y: number } | null {
+        return this.width < 16000 ? { x: 0, y: 0 } : null;
+    }
     
     public decideTeam(client: Client): TeamEntity {
         const team = this.playerTeamMap.get(client) || (this.getAlivePlayers().length <= MIN_PLAYERS ? this.teams[this.teams.length - 1] : this.teams[0]); // If there are not enough players to start the game, choose the team with least players. Otherwise choose the one with highest player count

@@ -78,6 +78,23 @@ export default class MothershipArena extends ArenaEntity {
     public override assignBotTeam(tank: TankBody): void {
         TeamEntity.setTeam(randomFrom(this.teams), tank);
     }
+
+    /** 母舰倾向：bot 无近期目标时前往最近的敌方母舰 */
+    public override getBotObjective(tank: TankBody): { x: number; y: number } | null {
+        let best: { x: number; y: number } | null = null;
+        let bestDistSq = Infinity;
+        for (const mot of this.motherships) {
+            if (!Entity.exists(mot) || mot.relationsData.values.team === tank.relationsData.values.team) continue;
+            const dx = mot.positionData.values.x - tank.positionData.values.x;
+            const dy = mot.positionData.values.y - tank.positionData.values.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestDistSq) {
+                bestDistSq = d2;
+                best = { x: mot.positionData.values.x, y: mot.positionData.values.y };
+            }
+        }
+        return best;
+    }
     
     public decideTeam(client: Client): TeamEntity {
         const team =  this.playerTeamMap.get(client) || randomFrom(this.teams);

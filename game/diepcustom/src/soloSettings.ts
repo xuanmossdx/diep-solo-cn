@@ -31,6 +31,10 @@ export const soloSettings = {
     necroClaimTriangle: true,
     /** 死灵法师击杀五边形也转化为无人机（血量/攻击由 fromShape 按方块伤害比例放大） */
     necroClaimPentagon: true,
+    /** 资源（方块）数量倍率，作用于各模式 wantedShapes，默认 2 = 数量翻倍（击毁后下一 tick 即时补齐） */
+    shapeMult: 2,
+    /** 清场回合时长（分钟），仅坦克大乱斗，默认 30；修改后下一局生效 */
+    roundMinutes: 30,
 };
 
 export interface SoloSettingsPatch {
@@ -38,6 +42,8 @@ export interface SoloSettingsPatch {
     necroMaxPerBarrel?: number;
     necroClaimTriangle?: boolean;
     necroClaimPentagon?: boolean;
+    shapeMult?: number;
+    roundMinutes?: number;
 }
 
 /** 应用一次设置变更，返回中文变更摘要（无有效字段时返回"无改动"） */
@@ -62,6 +68,16 @@ export function updateSoloSettings(patch: SoloSettingsPatch): string {
     if (typeof patch.necroClaimPentagon === "boolean") {
         soloSettings.necroClaimPentagon = patch.necroClaimPentagon;
         msgs.push(`五边转化 ${patch.necroClaimPentagon ? "开" : "关"}`);
+    }
+
+    if (typeof patch.shapeMult === "number" && isFinite(patch.shapeMult)) {
+        soloSettings.shapeMult = Math.min(3, Math.max(0.5, patch.shapeMult));
+        msgs.push(`资源数量倍率 x${soloSettings.shapeMult}`);
+    }
+
+    if (typeof patch.roundMinutes === "number" && isFinite(patch.roundMinutes)) {
+        soloSettings.roundMinutes = Math.min(60, Math.max(5, Math.round(patch.roundMinutes)));
+        msgs.push(`清场时间 ${soloSettings.roundMinutes} 分钟（下一局生效）`);
     }
 
     return msgs.join("，") || "无改动";

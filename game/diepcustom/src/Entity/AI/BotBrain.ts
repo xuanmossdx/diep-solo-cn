@@ -138,6 +138,14 @@ export class BotBrain extends AI {
         // —— 状态机 ——
         let moveX = 0, moveY = 0;
 
+        // —— 趋利避害：敌方分数与等级明显高于自己且非残血 → 回避。
+        // 撞击/强攻流天生莽，低难度（不卡距离的）笨 bot 不懂怕，其余流派都怕更强的 ——
+        const ownCam = (this.owner as TankBody).cameraEntity?.cameraData.values;
+        const enemyCam = enemy ? (enemy as TankBody).cameraEntity?.cameraData.values : null;
+        const enemyStronger = !!(ownCam && enemyCam && enemyCam.score > ownCam.score * 1.5 && enemyCam.level > ownCam.level);
+        const avoidEnemy = !!enemy && enemyStronger && !this.isWounded(enemy)
+            && this.flow.special !== "ram" && this.flow.key !== "assault" && this.diff.keepDistance;
+
         if (this.brainState === BrainState.retreat) {
             // 远离最近威胁 + 保持还击
             const threat = enemy || this.currentTarget;
@@ -151,6 +159,18 @@ export class BotBrain extends AI {
                 moveX = Math.cos(tick * 0.05); moveY = Math.sin(tick * 0.05);
             }
             this.wantFire = !!this.currentTarget && this.flow.special !== "ram";
+            this.wantRepel = false;
+        } else if (avoidEnemy && enemy) {
+            // 回避：边拉开距离边切向绕行（不易被直线追上），同时保持还击
+            this.brainState = BrainState.retreat;
+            this.currentTarget = enemy;
+            const ePos = enemy.positionData.values;
+            const dx = pos.x - ePos.x, dy = pos.y - ePos.y;
+            const len = Math.max(1, Math.hypot(dx, dy));
+            const ux = dx / len, uy = dy / len;
+            moveX = ux - uy * this.strafeDir * 0.4;
+            moveY = uy + ux * this.strafeDir * 0.4;
+            this.wantFire = true;
             this.wantRepel = false;
         } else if (enemy) {
             const ePos = enemy.positionData.values;
@@ -195,35 +215,43 @@ export class BotBrain extends AI {
             this.wantFire = this.flow.special !== "ram" && dist < 900;
             this.wantRepel = false;
         } else {
-            // 无目标：随机游走（收在地图边界内，卡住就换点）
+            // 无目标：优先前往模式目标点（占点/守母舰/缩圈向心），否则随机游走（收在地图边界内，卡住就换点）
             this.brainState = BrainState.wander;
             this.currentTarget = null;
             this.wantFire = false;
             this.wantRepel = false;
 
-            // 卡住检测：上一个决策周期内几乎没挪动 → 立即换目标点
-            if (this.hasLastWanderPos && Math.hypot(pos.x - this.lastWanderX, pos.y - this.lastWanderY) < 60) {
-                this.wanderUntilTick = 0;
-            }
-            this.lastWanderX = pos.x; this.lastWanderY = pos.y;
-            this.hasLastWanderPos = true;
+            const obj = this.game.arena.getBotObjective(this.owner as TankBody);
+            const objDist = obj ? Math.hypot(obj.x - pos.x, obj.y - pos.y) : 0;
 
-            if (tick >= this.wanderUntilTick || Math.hypot(this.wanderX - pos.x, this.wanderY - pos.y) < 300) {
-                const half = Math.min(this.game.arena.width, this.game.arena.height) / 2 - 800;
-                let tx = pos.x + (Math.random() * 2 - 1) * 3200;
-                let ty = pos.y + (Math.random() * 2 - 1) * 3200;
-                // 两成概率直接奔地图中部附近，避免长期滞留角落
-                if (Math.random() < 0.2) {
-                    tx = (Math.random() * 2 - 1) * half * 0.5;
-                    ty = (Math.random() * 2 - 1) * half * 0.5;
+            if (obj && objDist > 900) {
+                moveX = (obj.x - pos.x) / objDist;
+                moveY = (obj.y - pos.y) / objDist;
+            } else {
+                // 卡住检测：上一个决策周期内几乎没挪动 → 立即换目标点
+                if (this.hasLastWanderPos && Math.hypot(pos.x - this.lastWanderX, pos.y - this.lastWanderY) < 60) {
+                    this.wanderUntilTick = 0;
                 }
-                this.wanderX = Math.max(-half, Math.min(half, tx));
-                this.wanderY = Math.max(-half, Math.min(half, ty));
-                this.wanderUntilTick = tick + 25 * 6;
+                this.lastWanderX = pos.x; this.lastWanderY = pos.y;
+                this.hasLastWanderPos = true;
+
+                if (tick >= this.wanderUntilTick || Math.hypot(this.wanderX - pos.x, this.wanderY - pos.y) < 300) {
+                    const half = Math.min(this.game.arena.width, this.game.arena.height) / 2 - 800;
+                    let tx = pos.x + (Math.random() * 2 - 1) * 3200;
+                    let ty = pos.y + (Math.random() * 2 - 1) * 3200;
+                    // 两成概率直接奔地图中部附近，避免长期滞留角落
+                    if (Math.random() < 0.2) {
+                        tx = (Math.random() * 2 - 1) * half * 0.5;
+                        ty = (Math.random() * 2 - 1) * half * 0.5;
+                    }
+                    this.wanderX = Math.max(-half, Math.min(half, tx));
+                    this.wanderY = Math.max(-half, Math.min(half, ty));
+                    this.wanderUntilTick = tick + 25 * 6;
+                }
+                const dx = this.wanderX - pos.x, dy = this.wanderY - pos.y;
+                const len = Math.max(1, Math.hypot(dx, dy));
+                moveX = dx / len; moveY = dy / len;
             }
-            const dx = this.wanderX - pos.x, dy = this.wanderY - pos.y;
-            const len = Math.max(1, Math.hypot(dx, dy));
-            moveX = dx / len; moveY = dy / len;
         }
 
         this.moveDir = { x: moveX, y: moveY };
