@@ -137,6 +137,10 @@ app.get("/*", (res, req) => {
                 file = config.clientLocation + "/input.js";
                 contentType = "application/javascript";
                 break;
+            case "/touch.js":
+                file = config.clientLocation + "/touch.js";
+                contentType = "application/javascript";
+                break;
             case "/dma.js":
                 file = config.clientLocation + "/dma.js";
                 contentType = "application/javascript";
