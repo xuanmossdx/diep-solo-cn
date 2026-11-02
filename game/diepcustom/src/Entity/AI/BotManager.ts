@@ -16,7 +16,7 @@
     along with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-import ArenaEntity from "../../Native/Arena";
+import ArenaEntity, { ArenaState } from "../../Native/Arena";
 import { Entity } from "../../Native/Entity";
 import TankBody from "../Tank/TankBody";
 import * as config from "../../config";
@@ -63,6 +63,8 @@ export class BotManager {
 
     /** 每 tick 调用：补足数量、处理重生 */
     public tick(tick: number) {
+        // 开局倒计时阶段不生成（如生存模式开局前地图极小，等正式开局再铺开）
+        if (this.arena.state === ArenaState.COUNTDOWN) return;
         if (tick % (25 * 5) === 0) util.log(`[BotDebug] tick=${tick} bots=${this.bots.length} alive=${this.aliveBots().length}`);
         // 清理已消亡的 bot 实体，安排重生
         for (const record of this.bots) {

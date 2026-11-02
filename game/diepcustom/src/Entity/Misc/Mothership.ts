@@ -123,7 +123,7 @@ export default class Mothership extends TankBody {
                 if (tick - this.possessionStartTick >= POSSESSION_TIMER) {
                     this.inputs.deleted = true;
                 } else if (tick - this.possessionStartTick === Math.floor(POSSESSION_TIMER - 10 * tps)) {
-                    this.inputs.client.notify("You only have 10 seconds left in control of the Mothership", ColorsHexCode[this.styleData.values.color], 5_000, "");
+                    this.inputs.client.notify("你对该母舰的控制权只剩 10 秒", ColorsHexCode[this.styleData.values.color], 5_000, "");
                 }
             }
         }

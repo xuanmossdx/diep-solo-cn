@@ -22,6 +22,7 @@ import BossManager from "../Misc/BossManager";
 import TankBody from "../Entity/Tank/TankBody";
 import ArenaCloser from "../Entity/Misc/ArenaCloser";
 import AbstractBoss from "../Entity/Boss/AbstractBoss";
+import type { BotManager } from "../Entity/AI/BotManager";
 
 import { VectorAbstract } from "../Physics/Vector";
 import { ArenaGroup, TeamGroup } from "./FieldGroups";
@@ -82,6 +83,11 @@ export default class ArenaEntity extends Entity implements TeamGroupEntity {
 
     /** Padding between arena size and maximum movement border. */
     public ARENA_PADDING: number = 200;
+
+    /** 通用 AI 管理器：各模式按需在构造函数里创建（坦克大乱斗项目：全模式都有人机） */
+    public botManager?: BotManager;
+    /** Bot 出生时的分队钩子：团队模式覆写，默认无队伍（FFA 类） */
+    public assignBotTeam(_tank: TankBody): void {}
 
     public constructor(game: GameServer) {
         super(game);
@@ -218,7 +224,7 @@ export default class ArenaEntity extends Entity implements TeamGroupEntity {
     protected updateArenaState() {
         if ((this.game.tick % scoreboardUpdateInterval) !== 0) return;
 
-        const players = this.getAlivePlayers();
+        const players = this.getAlivePlayers().concat(this.botManager ? this.botManager.aliveBots() : []);
         // Sorts them too DONT FORGET
         this.updateScoreboard(players);
         
@@ -349,7 +355,7 @@ export default class ArenaEntity extends Entity implements TeamGroupEntity {
      */
     public close() {
         for (const client of this.game.clients) {
-            client.notify("Arena closed: No players can join", 0xFF0000, -1);
+            client.notify("竞技场已关闭：无法加入", 0xFF0000, -1);
         }
 
         this.state = ArenaState.CLOSING;
@@ -385,5 +391,6 @@ export default class ArenaEntity extends Entity implements TeamGroupEntity {
         }
 
         this.bossManager?.tick(tick);
+        this.botManager?.tick(tick);
     }
 }

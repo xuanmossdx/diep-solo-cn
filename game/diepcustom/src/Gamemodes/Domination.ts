@@ -27,6 +27,8 @@ import ArenaEntity, { ArenaState } from "../Native/Arena";
 import { Entity } from "../Native/Entity";
 import { randomFrom, getRandomPosition } from "../util";
 
+import { BotManager } from "../Entity/AI/BotManager";
+
 const arenaSize = 11150;
 const baseSize = arenaSize / (3 + 1/3); // 3345, must scale with arena size
 const domBaseSize = baseSize / 2;
@@ -80,8 +82,15 @@ export default class DominationArena extends ArenaEntity {
         const NE = new Dominator(this, new TeamBase(game, this, arenaSize / 2.5, arenaSize / -2.5, domBaseSize, domBaseSize, false));
         NE.prefix = "NE ";
         this.dominators.push(SE, SW, NW, NE);
+
+        this.botManager = new BotManager(this);
     }
-    
+
+    /** Bot 出生时随机分队（且 bot 独占占领点时不触发游戏结束，见 updateArenaState） */
+    public override assignBotTeam(tank: TankBody): void {
+        TeamEntity.setTeam(randomFrom(this.teams), tank);
+    }
+
     public decideTeam(client: Client): TeamEntity {
         const team =  this.playerTeamMap.get(client) || randomFrom(this.teams);
         this.playerTeamMap.set(client, team);
@@ -138,7 +147,8 @@ export default class DominationArena extends ArenaEntity {
 
         const dominatorCount = this.dominators.length; // Only count alive players for win condition
         for (const team of this.teams) {
-            if (this.getTeamDominatorCount(team) === dominatorCount) { // If all dominators are on the same team, the game is over
+            // 只有真人所在队伍独占全部占领点时才结束游戏（bot 之间打完自动开新局没意义，反而会把真人踢出）
+            if (this.getTeamDominatorCount(team) === dominatorCount && this.getTeamPlayers(team).length > 0) {
                 if (this.state === ArenaState.OPEN) {
                     this.game.broadcast()
                         .u8(ClientBound.Notification)

@@ -23,10 +23,11 @@ const CDN = "https://static.diep.io/";
 const API_URL = `${window.location.href}api/`;
 
 const CHANGELOG = [
-    "Updated recently",
+    "坦克大乱斗（单机 AI 版）",
     "",
-    "Check out the GitHub repository!: github.com/ABCxFF/diepcustom",
-    "Join our Discord server: discord.gg/SyxWdxgHnT :)"
+    "1 真人 + 25 AI 五流派乱斗，30 分钟清场循环",
+    "死亡可保留等级复活，或从零重新开始",
+    "触屏双摇杆：左移动 / 右瞄准开火"
 ];
 
 // Only send pings every 500ms

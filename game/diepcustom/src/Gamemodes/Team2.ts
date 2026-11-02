@@ -27,6 +27,8 @@ import { TeamEntity } from "../Entity/Misc/TeamEntity";
 import { Color } from "../Const/Enums";
 import { randomFrom, getRandomPosition } from "../util";
 
+import { BotManager } from "../Entity/AI/BotManager";
+
 const arenaSize = 11150;
 const baseWidth = arenaSize / (3 + 1/3) * 0.6; // 2007
 
@@ -52,6 +54,13 @@ export default class Teams2Arena extends ArenaEntity {
 
         new TeamBase(game, this.blueTeamEntity, -arenaSize + baseWidth / 2, 0, arenaSize * 2, baseWidth, true, 12, 2);
         new TeamBase(game, this.redTeamEntity, arenaSize - baseWidth / 2, 0, arenaSize * 2, baseWidth, true, 12, 2);
+
+        this.botManager = new BotManager(this);
+    }
+
+    /** Bot 出生时随机分队 */
+    public override assignBotTeam(tank: TankBody): void {
+        TeamEntity.setTeam(randomFrom([this.blueTeamEntity, this.redTeamEntity]), tank);
     }
 
     public decideTeam(client: Client): TeamEntity {

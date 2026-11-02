@@ -78,6 +78,10 @@ export class BotBrain extends AI {
     private wanderX = 0;
     private wanderY = 0;
     private wanderUntilTick = 0;
+    /** 上次决策时的位置（游走卡住检测用） */
+    private lastWanderX = 0;
+    private lastWanderY = 0;
+    private hasLastWanderPos = false;
 
     /** 进化链进度 */
     private chainIndex = 0;
@@ -126,8 +130,10 @@ export class BotBrain extends AI {
         }
 
         // —— 目标检索 ——
-        const enemy = this.searchNearest(this.viewRange, e => TankBody.isTank(e));
-        const shape = this.searchNearest(1200, e => !TankBody.isTank(e));
+        // 优先视野内的残血坦克（血量 < 50%），没有残血才选最近的；方块搜索半径加大让发育更积极
+        const enemy = this.searchNearest(this.viewRange, e => TankBody.isTank(e) && this.isWounded(e))
+            || this.searchNearest(this.viewRange, e => TankBody.isTank(e));
+        const shape = this.searchNearest(2400, e => !TankBody.isTank(e));
 
         // —— 状态机 ——
         let moveX = 0, moveY = 0;
@@ -152,10 +158,22 @@ export class BotBrain extends AI {
             const dist = Math.hypot(dx, dy);
 
             if (this.flow.special === "trap" && dist > TRAP_ENGAGE_RANGE) {
-                // 守株待兔：原地布防，顺路打方块
+                // 布防但不停摆：有方块就边打方块边小幅度绕行拉开距离，没方块就绕圈游走
                 this.brainState = BrainState.layTraps;
                 this.currentTarget = shape;
-                moveX = 0; moveY = 0;
+                if (shape) {
+                    const sPos = shape.positionData.values;
+                    const sx = sPos.x - pos.x, sy = sPos.y - pos.y;
+                    const sl = Math.max(1, Math.hypot(sx, sy));
+                    // 朝方块走，同时叠加切向分量绕开敌人射线
+                    const ux = dx / dist, uy = dy / dist;
+                    moveX = sx / sl - uy * this.strafeDir * 0.4;
+                    moveY = sy / sl + ux * this.strafeDir * 0.4;
+                } else {
+                    const ux = dx / dist, uy = dy / dist;
+                    moveX = -uy * this.strafeDir;
+                    moveY = ux * this.strafeDir;
+                }
                 this.wantFire = !!shape;
                 this.wantRepel = false;
             } else {
@@ -166,26 +184,41 @@ export class BotBrain extends AI {
                 this.wantFire = true; // 撞击流 Smasher 系无炮管，开火标志无副作用
                 this.wantRepel = this.flow.special === "drone" && dist < 300;
             }
-        } else if (shape && this.flow.special !== "ram") {
-            // 游荡觅食
+        } else if (shape) {
+            // 游荡觅食（撞击流也撞方块发育）
             this.brainState = BrainState.wander;
             this.currentTarget = shape;
             const sPos = shape.positionData.values;
             const dx = sPos.x - pos.x, dy = sPos.y - pos.y;
             const dist = Math.max(1, Math.hypot(dx, dy));
             moveX = dx / dist; moveY = dy / dist;
-            this.wantFire = dist < 900;
+            this.wantFire = this.flow.special !== "ram" && dist < 900;
             this.wantRepel = false;
         } else {
-            // 无目标：随机游走
+            // 无目标：随机游走（收在地图边界内，卡住就换点）
             this.brainState = BrainState.wander;
             this.currentTarget = null;
             this.wantFire = false;
             this.wantRepel = false;
 
+            // 卡住检测：上一个决策周期内几乎没挪动 → 立即换目标点
+            if (this.hasLastWanderPos && Math.hypot(pos.x - this.lastWanderX, pos.y - this.lastWanderY) < 60) {
+                this.wanderUntilTick = 0;
+            }
+            this.lastWanderX = pos.x; this.lastWanderY = pos.y;
+            this.hasLastWanderPos = true;
+
             if (tick >= this.wanderUntilTick || Math.hypot(this.wanderX - pos.x, this.wanderY - pos.y) < 300) {
-                this.wanderX = pos.x + (Math.random() * 2 - 1) * 2400;
-                this.wanderY = pos.y + (Math.random() * 2 - 1) * 2400;
+                const half = Math.min(this.game.arena.width, this.game.arena.height) / 2 - 800;
+                let tx = pos.x + (Math.random() * 2 - 1) * 3200;
+                let ty = pos.y + (Math.random() * 2 - 1) * 3200;
+                // 两成概率直接奔地图中部附近，避免长期滞留角落
+                if (Math.random() < 0.2) {
+                    tx = (Math.random() * 2 - 1) * half * 0.5;
+                    ty = (Math.random() * 2 - 1) * half * 0.5;
+                }
+                this.wanderX = Math.max(-half, Math.min(half, tx));
+                this.wanderY = Math.max(-half, Math.min(half, ty));
                 this.wanderUntilTick = tick + 25 * 6;
             }
             const dx = this.wanderX - pos.x, dy = this.wanderY - pos.y;
@@ -287,6 +320,12 @@ export class BotBrain extends AI {
             }
             if (!allocated) break; // 全部加满
         }
+    }
+
+    /** 残血判定：血量低于 50% 的坦克视为可追击的猎物 */
+    private isWounded(e: ObjectEntity): boolean {
+        const h = e.healthData ? e.healthData.values : null;
+        return !!h && h.maxHealth > 0 && h.health / h.maxHealth < 0.5;
     }
 
     /**

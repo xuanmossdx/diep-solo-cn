@@ -11,3 +11,6 @@ server-log*.txt
 # 系统文件
 Thumbs.db
 .DS_Store
+
+# 调试用二进制（WASM 实际从官方 CDN 拉取后在内存中汉化，此文件不参与运行）
+game/diepcustom/client/build_patched.wasm

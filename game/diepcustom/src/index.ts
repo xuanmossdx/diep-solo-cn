@@ -27,6 +27,7 @@ import Achievements from "./Const/Achievements";
 import { commandDefinitions } from "./Const/Commands";
 import { ColorsHexCode, StatCount } from "./Const/Enums";
 import { TankCount } from "./Const/TankDefinitions";
+import { soloSettings, updateSoloSettings } from "./soloSettings";
 
 import FFAArena from "./Gamemodes/FFA";
 import SandboxArena from "./Gamemodes/Sandbox";
@@ -126,6 +127,37 @@ app.get("/*", (res, req) => {
             case "/achievements":
                 res.writeStatus("200 OK").end(JSON.stringify(Achievements));
                 return;
+            case "/solo-round": {
+                // 当前坦克大乱斗回合的清场倒计时（其他模式返回 null，客户端隐藏倒计时条）
+                const soloGame = GameServer.games.find(g => g.gamemode === "solo");
+                const arena = soloGame ? soloGame.arena : null;
+                const info = arena && typeof (arena as SoloFFAArena).getRoundInfo === "function"
+                    ? (arena as SoloFFAArena).getRoundInfo()
+                    : null;
+                res.writeStatus("200 OK").end(JSON.stringify(info));
+                return;
+            }
+            case "/solo-settings": {
+                // GET /api/solo-settings                -> 返回当前设置
+                // GET /api/solo-settings?droneMult=2&necroMax=20&tri=1&pent=1 -> 应用并返回
+                const q = (k: string) => req.getQuery(k);
+                const hasPatch = !!q("droneMult") || !!q("necroMax") || !!q("tri") || !!q("pent");
+                if (hasPatch) {
+                    const num = (v: string | undefined) => { if (!v) return undefined; const n = parseFloat(v); return isFinite(n) ? n : undefined; };
+                    const flag = (v: string | undefined) => v == null ? undefined : v === "1";
+                    const msg = updateSoloSettings({
+                        droneMult: num(q("droneMult")),
+                        necroMaxPerBarrel: num(q("necroMax")),
+                        necroClaimTriangle: flag(q("tri")),
+                        necroClaimPentagon: flag(q("pent"))
+                    });
+                    for (const g of GameServer.games) g.broadcastMessage(`设置已更新：${msg}`, 0x37F554, 5000, "soloSettings");
+                    res.writeStatus("200 OK").end(JSON.stringify({ ok: true, msg, settings: soloSettings }));
+                    return;
+                }
+                res.writeStatus("200 OK").end(JSON.stringify(soloSettings));
+                return;
+            }
         }
     }
 
@@ -169,6 +201,10 @@ app.get("/*", (res, req) => {
                 file = config.clientLocation + "/config.js";
                 contentType = "application/javascript";
                 break;
+            case "/ach_zh.js":
+                file = config.clientLocation + "/ach_zh.js";
+                contentType = "application/javascript";
+                break;
         }
 
         res.writeHeader("Content-Type", contentType + "; charset=utf-8");
@@ -191,18 +227,18 @@ app.listen(PORT, (success) => {
     // RULES(0): No two game servers should share the same endpoint
     //
     // NOTES(0): As of now, both servers run on the same process (and thread) here
-    const ffa = new GameServer(FFAArena, "FFA");
-    const sandbox = new GameServer(SandboxArena, "Sandbox");
-    // 坦克大乱斗（自定义：1 真人 + AI 乱斗 + 回合清场）
-    const solo = new GameServer(SoloFFAArena, "Solo Brawl");
+    // 注意：坦克大乱斗必须是第一个创建的 —— 客户端在本地模式记录无效时会回退连 servers[0]
+    const solo = new GameServer(SoloFFAArena, "坦克大乱斗");
+    const ffa = new GameServer(FFAArena, "自由乱斗");
+    const sandbox = new GameServer(SandboxArena, "沙盒");
     // 官方模式全集（diepcustom 现成实现）
-    const teams = new GameServer(Team2Arena, "2 Teams");
-    const teams4 = new GameServer(Team4Arena, "4 Teams");
-    const dom = new GameServer(DominationArena, "Domination");
-    const tag = new GameServer(TagArena, "Tag");
-    const maze = new GameServer(MazeArena, "Maze");
-    const survival = new GameServer(SurvivalArena, "Survival");
-    const mot = new GameServer(MothershipArena, "Mothership");
+    const teams = new GameServer(Team2Arena, "双队");
+    const teams4 = new GameServer(Team4Arena, "四队");
+    const dom = new GameServer(DominationArena, "占领");
+    const tag = new GameServer(TagArena, "捉人");
+    const maze = new GameServer(MazeArena, "迷宫");
+    const survival = new GameServer(SurvivalArena, "生存");
+    const mot = new GameServer(MothershipArena, "母舰");
 
     util.saveToLog("Servers up", "All servers booted up.", 0x37F554);
     util.log("Dumping endpoint -> gamemode routing table");

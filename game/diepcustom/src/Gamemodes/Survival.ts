@@ -24,7 +24,9 @@ import TankBody from "../Entity/Tank/TankBody";
 
 import ShapeManager from "../Misc/ShapeManager";
 import { ArenaFlags, ClientBound } from "../Const/Enums";
-import { countdownDuration, scoreboardUpdateInterval } from "../config";
+import { countdownDuration, scoreboardUpdateInterval, soloBotCount } from "../config";
+
+import { BotManager } from "../Entity/AI/BotManager";
 
 const MIN_PLAYERS = 4; // 6 in Diep.io
 const SCORE_PER_TICK = 0.2;
@@ -56,10 +58,11 @@ export default class SurvivalArena extends ArenaEntity {
         this.arenaData.values.playersNeeded = MIN_PLAYERS;
 
         this.setSurvivalArenaSize(0);
+        this.botManager = new BotManager(this);
     }
 
     public updateArenaState() {
-        const players = this.getAlivePlayers();
+        const players = this.getAlivePlayers().concat(this.botManager?.aliveBots() ?? []);
         const aliveCount = players.length;
 
         this.setSurvivalArenaSize(aliveCount);
@@ -67,6 +70,16 @@ export default class SurvivalArena extends ArenaEntity {
         if ((this.game.tick % scoreboardUpdateInterval) === 0) {
             // Sorts them too DONT FORGET
             this.updateScoreboard(players);
+        }
+
+        // 单机适配：真人已出生且已阵亡时提前结束本局（缩圈清场 → 新一局），避免干看 AI 打完
+        if (this.state === ArenaState.OPEN
+            && this.game.clients.size > 0
+            && this.getAlivePlayers().length === 0
+            && this.game.clientsAwaitingSpawn.size === 0) {
+            this.state = ArenaState.OVER;
+            this.close();
+            return;
         }
 
         if (aliveCount <= 1 && this.state === ArenaState.OPEN) {
@@ -101,7 +114,8 @@ export default class SurvivalArena extends ArenaEntity {
 
     public manageCountdown() {
         if (this.state === ArenaState.COUNTDOWN) {
-            this.arenaData.playersNeeded = MIN_PLAYERS - this.game.clientsAwaitingSpawn.size;
+            // 单机适配：bot 也计入开局人数（倒计时阶段 bot 尚未生成，按配置总数算），1 个真人即可成局
+            this.arenaData.playersNeeded = Math.max(0, MIN_PLAYERS - this.game.clientsAwaitingSpawn.size - soloBotCount);
             if (this.arenaData.values.playersNeeded <= 0) {
                 this.arenaData.flags |= ArenaFlags.gameReadyStart;
             } else {
@@ -115,7 +129,7 @@ export default class SurvivalArena extends ArenaEntity {
     public onGameStarted() {
         super.onGameStarted();
 
-        this.setSurvivalArenaSize(this.game.clientsAwaitingSpawn.size);
+        this.setSurvivalArenaSize(this.game.clientsAwaitingSpawn.size + (this.botManager?.aliveBots().length ?? 0));
         this.arenaData.flags |= ArenaFlags.noJoining; // No joining once the game has started, and also no respawns
     }
 

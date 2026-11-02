@@ -22,6 +22,8 @@ import ArenaEntity, { ArenaState } from "../Native/Arena";
 import ShapeManager from "../Misc/ShapeManager";
 import { ArenaFlags } from "../Const/Enums";
 
+import { BotManager } from "../Entity/AI/BotManager";
+
 /**
  * Manage shape count
  */
@@ -52,15 +54,17 @@ export default class SandboxArena extends ArenaEntity {
         this.game.enableAchievements = false;
 
         this.setSandboxArenaSize(0);
+        this.botManager = new BotManager(this);
     }
-    
+
     public setSandboxArenaSize(playerCount: number) {
         const arenaSize = Math.floor(25 * Math.sqrt(Math.max(playerCount, 1))) * 100;
         this.updateBounds(arenaSize, arenaSize);
     }
 
     public tick(tick: number) {
-        this.setSandboxArenaSize(this.game.clients.size);
+        // 地图大小把 bot 也算上，不然 25 台 AI 挤在小地图里
+        this.setSandboxArenaSize(this.game.clients.size + (this.botManager?.aliveBots().length ?? 0));
 
         super.tick(tick);
     }

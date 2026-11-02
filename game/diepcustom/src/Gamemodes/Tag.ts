@@ -24,7 +24,9 @@ import LivingEntity from "../Entity/Live";
 import GameServer from "../Game";
 import ArenaEntity, { ArenaState } from "../Native/Arena";
 import { Entity } from "../Native/Entity";
-import { shuffleArray } from "../util";
+import { shuffleArray, randomFrom } from "../util";
+
+import { BotManager } from "../Entity/AI/BotManager";
 import { tps, scoreboardUpdateInterval } from "../config";
 
 import TeamBase from "../Entity/Misc/TeamBase"
@@ -91,6 +93,13 @@ export default class TagArena extends ArenaEntity {
         }
 
         this.updateBounds(ARENA_SIZE * 2, ARENA_SIZE * 2);
+
+        this.botManager = new BotManager(this);
+    }
+
+    /** Bot 出生时随机分队 */
+    public override assignBotTeam(tank: TankBody): void {
+        TeamEntity.setTeam(randomFrom(this.teams), tank);
     }
     
     public decideTeam(client: Client): TeamEntity {

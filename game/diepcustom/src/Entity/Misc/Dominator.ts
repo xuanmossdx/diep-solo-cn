@@ -127,7 +127,7 @@ export default class Dominator extends TankBody {
                 if (!camera) continue;
 
                 if (camera.relationsData.values.team === this.relationsData.values.team) {
-                    client.notify(`Press H to take control of the ${this.nameData.values.name}`, ColorsHexCode[killerTeam.teamData.values.teamColor]);
+                    client.notify(`按 H 接管 ${this.nameData.values.name}`, ColorsHexCode[killerTeam.teamData.values.teamColor]);
                 }
             }
         } else {

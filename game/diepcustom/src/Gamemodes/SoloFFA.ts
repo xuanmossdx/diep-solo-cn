@@ -30,10 +30,11 @@ import ArenaCloser from "../Entity/Misc/ArenaCloser";
 
 import { BotManager } from "../Entity/AI/BotManager";
 
-/** 地图加大后按比例增补方块密度（默认 1000 / 30000² 地图 → 1400） */
+/** 方块密度与地图面积成比例：原版 22300² 地图对应 1000 个 */
 class SoloShapeManager extends ShapeManager {
     protected override get wantedShapes() {
-        return 1400;
+        const ratio = (config.soloArenaSize * config.soloArenaSize) / (22300 * 22300);
+        return Math.round(1000 * ratio);
     }
 }
 
@@ -71,8 +72,7 @@ export default class SoloFFAArena extends ArenaEntity {
     }
 
     public tick(tick: number) {
-        super.tick(tick);
-        this.botManager.tick(tick);
+        super.tick(tick); // botManager 已由基类统一 tick
 
         if (this.closing) {
             if (--this.closingTicks <= 0) this.resetRound();
@@ -138,6 +138,15 @@ export default class SoloFFAArena extends ArenaEntity {
         }
 
         this.game.broadcastMessage("新的一局开始！所有人的等级已清零，从零开始吧。", 0x37F554, 6000, "newRound");
+    }
+
+    /** 回合信息（供 /api/solo-round 客户端倒计时条轮询） */
+    public getRoundInfo(): { closing: boolean; secondsLeft: number; roundSeconds: number } {
+        return {
+            closing: this.closing,
+            secondsLeft: Math.ceil((this.closing ? this.closingTicks : this.roundTicks) / config.tps),
+            roundSeconds: Math.round(config.soloRoundTicks / config.tps)
+        };
     }
 
     /**

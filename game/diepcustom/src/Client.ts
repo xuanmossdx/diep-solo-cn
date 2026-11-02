@@ -276,7 +276,7 @@ export default class Client {
 
                             player.setInvulnerability(!player.isInvulnerable);
 
-                            this.notify(`God mode: ${player.isInvulnerable ? "ON" : "OFF"}`, 0x000000, 5000, "godmode_toggle");
+                            this.notify(`上帝模式：${player.isInvulnerable ? "开" : "关"}`, 0x000000, 5000, "godmode_toggle");
                         }
                     }
                 }
@@ -394,7 +394,7 @@ export default class Client {
             }
             case ServerBound.TakeTank: {
                 if (!Entity.exists(camera.cameraData.player)) return;
-                if (!this.game.entities.AIs.length) return this.notify("Someone has already taken this tank", 0x000000, 5000, "cant_claim_info");
+                if (!this.game.entities.AIs.length) return this.notify("这辆坦克已经被认领了", 0x000000, 5000, "cant_claim_info");
                 if (!this.inputs.isPossessing) {
                     const x = camera.cameraData.player.positionData?.values.x || 0;
                     const y = camera.cameraData.player.positionData?.values.y || 0;
@@ -413,7 +413,7 @@ export default class Client {
                         }
                     }
 
-                    this.notify("Someone has already taken that tank", 0x000000, 5000, "cant_claim_info");
+                    this.notify("这辆坦克已经被认领了", 0x000000, 5000, "cant_claim_info");
                 } else {
                     camera.cameraData.FOV = 0.35;
                     this.inputs.deleted = true;
@@ -504,7 +504,7 @@ export default class Client {
         this.camera.cameraData.statsAvailable = 0;
         this.camera.cameraData.score = 0;
         this.camera.entityState = EntityStateFlags.needsCreate | EntityStateFlags.needsDelete;
-        this.notify("Press H to surrender control of the tank", 0x000000, 15000);
+        this.notify("按 H 交出坦克控制权", 0x000000, 15000);
         return true;
     }
 

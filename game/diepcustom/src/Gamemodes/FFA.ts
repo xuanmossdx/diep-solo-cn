@@ -16,11 +16,20 @@
     along with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
+import GameServer from "../Game";
 import ArenaEntity from "../Native/Arena";
+
+import { BotManager } from "../Entity/AI/BotManager";
 
 /**
  * FFA Gamemode Arena
  */
 export default class FFAArena extends ArenaEntity {
     static override GAMEMODE_ID: string = "ffa";
+
+    public constructor(game: GameServer) {
+        super(game);
+
+        this.botManager = new BotManager(this);
+    }
 }

@@ -22,6 +22,8 @@ import MazeGenerator, { MazeGeneratorConfig } from "../Misc/MazeGenerator";
 
 import ShapeManager from "../Misc/ShapeManager";
 
+import { BotManager } from "../Entity/AI/BotManager";
+
 /**
  * Manage shape count
  */
@@ -67,6 +69,7 @@ export default class MazeArena extends ArenaEntity {
         this.mazeGenerator.placeWalls(this);
 
         this.bossManager = null; // Disables boss spawning
+        this.botManager = new BotManager(this);
     }
 
     public isValidSpawnLocation(x: number, y: number): boolean {

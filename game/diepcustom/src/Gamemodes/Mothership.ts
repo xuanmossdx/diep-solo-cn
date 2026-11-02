@@ -26,6 +26,8 @@ import ArenaEntity, { ArenaState } from "../Native/Arena";
 import { Entity } from "../Native/Entity";
 import { PI2, randomFrom } from "../util";
 
+import { BotManager } from "../Entity/AI/BotManager";
+
 const arenaSize = 11150;
 const TEAM_COLORS = [Color.TeamBlue, Color.TeamRed];
 
@@ -68,6 +70,13 @@ export default class MothershipArena extends ArenaEntity {
 
             randAngle += PI2 / TEAM_COLORS.length;
         }
+
+        this.botManager = new BotManager(this);
+    }
+
+    /** Bot 出生时随机分队 */
+    public override assignBotTeam(tank: TankBody): void {
+        TeamEntity.setTeam(randomFrom(this.teams), tank);
     }
     
     public decideTeam(client: Client): TeamEntity {

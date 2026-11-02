@@ -17,6 +17,7 @@
 */
 
 import * as util from "../../util";
+import { soloSettings } from "../../soloSettings";
 
 import type GameServer from "../../Game";
 import type { CameraEntity } from "../../Native/Camera";
@@ -205,7 +206,7 @@ export default class TankBody extends LivingEntity implements BarrelBase {
         const client = this.cameraEntity.getClient();
         if (client) {
             if (entity.nameData && !(entity.nameData.values.flags & NameFlags.hiddenName)) {
-                client.notify(`You've killed ${entity.nameData.values.name || "an unnamed tank"}`);
+                client.notify(`你击毁了 ${entity.nameData.values.name || "无名坦克"}`);
             }
 
             if (this.game.enableAchievements) {
@@ -225,23 +226,36 @@ export default class TankBody extends LivingEntity implements BarrelBase {
 
         // TODO(ABC):
         // This is actually not how necromancers claim squares.
-        if (entity.arenaMobID === "square" && this.definition.flags.canClaimSquares && this.barrels.length) {
-            // If can claim, pick a random barrel that has drones it can still shoot, then shoot
-            const MAX_DRONES_PER_BARREL = 11 + this.cameraEntity.cameraData.values.statLevels.values[Stat.Reload];
-            const barrelsToShoot = this.barrels.filter((e) => e.definition.bullet.type === "necrodrone" && e.droneCount < MAX_DRONES_PER_BARREL);
+        if (this.definition.flags.canClaimSquares && this.barrels.length) {
+            // 单机扩展（仅对真人玩家生效，AI 死灵保持原版只转化方块）：
+            // - 三角/五边形转化由设置开关控制（默认开），启动即生效
+            // - 转化出的无人机血量/攻击由 NecromancerSquare.fromShape 按方块伤害比例自动放大（三角约 x6、五边约 x9，方块为 x4）
+            const isHuman = !!this.cameraEntity.getClient();
+            const mob = entity.arenaMobID;
+            const claimable = mob === "square"
+                || (isHuman && soloSettings.necroClaimTriangle && mob === "triangle")
+                || (isHuman && soloSettings.necroClaimPentagon && (mob === "pentagon" || mob === "alphaPentagon"));
+            if (claimable) {
+                // If can claim, pick a random barrel that has drones it can still shoot, then shoot
+                // 每管上限：真人且设置 > 0 时直接覆盖，否则用原版公式（11 + 装填等级）
+                const MAX_DRONES_PER_BARREL = isHuman && soloSettings.necroMaxPerBarrel > 0
+                    ? soloSettings.necroMaxPerBarrel
+                    : 11 + this.cameraEntity.cameraData.values.statLevels.values[Stat.Reload];
+                const barrelsToShoot = this.barrels.filter((e) => e.definition.bullet.type === "necrodrone" && e.droneCount < MAX_DRONES_PER_BARREL);
 
-            if (barrelsToShoot.length) {
-                const barrelToShoot = util.randomFrom(barrelsToShoot);
+                if (barrelsToShoot.length) {
+                    const barrelToShoot = util.randomFrom(barrelsToShoot);
 
-                // No destroy it on the next tick to make it look more like the way diep does it.
-                entity.destroy(true);
-                if (entity.deletionAnimation) {
-                    entity.deletionAnimation.frame = 0;
-                    entity.styleData.opacity = 1;
-                    entity.healthData.flags = HealthFlags.hiddenHealthbar
+                    // No destroy it on the next tick to make it look more like the way diep does it.
+                    entity.destroy(true);
+                    if (entity.deletionAnimation) {
+                        entity.deletionAnimation.frame = 0;
+                        entity.styleData.opacity = 1;
+                        entity.healthData.flags = HealthFlags.hiddenHealthbar
+                    }
+
+                    const sunchip = NecromancerSquare.fromShape(barrelToShoot, this, this.definition, entity as AbstractShape);
                 }
-
-                const sunchip = NecromancerSquare.fromShape(barrelToShoot, this, this.definition, entity as AbstractShape);
             }
         }
     }

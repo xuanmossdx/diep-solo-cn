@@ -298,6 +298,117 @@
         });
     }
 
+    // ---------- 设置面板（L 键）：无人机上限 / 死灵法师 ----------
+    // 面板事件屏蔽层：游戏 WASM 在 document 级监听键盘/鼠标，会吞掉面板输入框的按键。
+    // 在 window 捕获阶段（最早）把发生在面板内的事件拦下，游戏不再响应，同时保留浏览器默认输入行为。
+    (function installPanelShield() {
+        function inPanel(target) {
+            var p = target;
+            while (p) {
+                if (p.classList && p.classList.contains("tldc-panel")) return true;
+                p = p.parentElement;
+            }
+            return false;
+        }
+        function shield(e) {
+            if (inPanel(e.target)) e.stopPropagation();
+        }
+        ["keydown", "keyup", "keypress", "pointerdown", "mousedown", "mouseup", "click", "wheel"].forEach(function (t) {
+            window.addEventListener(t, shield, true);
+        });
+    })();
+
+    function buildSettings() {
+        var status;
+
+        function mkInput(type, minv, maxv, stepv) {
+            var i = el("input");
+            i.type = type; i.min = minv; i.max = maxv; i.step = stepv;
+            i.style.cssText = "width:90px;min-height:36px;background:#14142a;color:#fff;border:2px solid #44448a;border-radius:8px;padding:2px 6px;font-size:14px";
+            return i;
+        }
+
+        var multInput = mkInput("number", 0.5, 10, 0.5);
+        var necroInput = mkInput("number", 0, 100, 1);
+        var triInput = mkInput("checkbox");
+        triInput.style.cssText = "width:22px;height:22px";
+        var pentInput = mkInput("checkbox");
+        pentInput.style.cssText = "width:22px;height:22px";
+
+        function fill() {
+            fetch("/api/solo-settings").then(function (r) { return r.json(); }).then(function (s) {
+                multInput.value = s.droneMult;
+                necroInput.value = s.necroMaxPerBarrel;
+                triInput.checked = !!s.necroClaimTriangle;
+                pentInput.checked = !!s.necroClaimPentagon;
+            }).catch(function () {});
+        }
+
+        var panel = buildPanel("单机设置（无人机 / 死灵法师）", function (body) {
+            function row(labelText, ctrl) {
+                var r = el("div", "tldc-card");
+                r.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:10px";
+                var lab = el("span", null, labelText);
+                lab.style.cssText = "flex:1;font-size:14px";
+                r.appendChild(lab);
+                r.appendChild(ctrl);
+                body.appendChild(r);
+            }
+
+            // 数字框 ± 步进器：点按钮或直接输入都可以
+            function stepper(input, stepv) {
+                var wrap = el("div");
+                wrap.style.cssText = "display:flex;align-items:center;gap:6px";
+                function mkBtn(text) {
+                    var b = el("button", null, text);
+                    b.style.cssText = "min-width:36px;min-height:36px;background:#14142a;color:#ffde43;"
+                        + "border:2px solid #44448a;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;padding:0";
+                    return b;
+                }
+                function clamp(v) {
+                    var lo = parseFloat(input.min), hi = parseFloat(input.max);
+                    v = Math.min(hi, Math.max(lo, v));
+                    return Math.round(v * 100) / 100;
+                }
+                var minus = mkBtn("−"), plus = mkBtn("+");
+                minus.addEventListener("click", function () { input.value = clamp((parseFloat(input.value) || 0) - stepv); });
+                plus.addEventListener("click", function () { input.value = clamp((parseFloat(input.value) || 0) + stepv); });
+                wrap.appendChild(minus);
+                wrap.appendChild(input);
+                wrap.appendChild(plus);
+                return wrap;
+            }
+
+            row("无人机数量上限倍率（0.5~10，仅对真人自己生效，AI 不受影响）", stepper(multInput, 0.5));
+            row("死灵法师每管无人机上限（0 = 默认 11+装填，仅对真人自己生效）", stepper(necroInput, 1));
+            row("死灵法师击杀三角形也转化（血量/攻击约 x6，默认开，AI 不受影响）", triInput);
+            row("死灵法师击杀五边形也转化（血量/攻击约 x9，默认开，AI 不受影响）", pentInput);
+
+            var apply = el("button", "primary", "应用");
+            apply.style.cssText = "min-height:44px;padding:8px 24px;background:#8ac255;color:#222;border:0;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer";
+            status = el("div");
+            status.style.cssText = "color:#9ade9f;font-size:13px;margin-top:8px;min-height:18px";
+            apply.addEventListener("click", function () {
+                var url = "/api/solo-settings?droneMult=" + encodeURIComponent(multInput.value || "1")
+                    + "&necroMax=" + encodeURIComponent(necroInput.value || "0")
+                    + "&tri=" + (triInput.checked ? "1" : "0")
+                    + "&pent=" + (pentInput.checked ? "1" : "0");
+                fetch(url).then(function (r) { return r.json(); }).then(function (res) {
+                    status.textContent = res.msg || "已应用";
+                }).catch(function () { status.textContent = "应用失败"; });
+            });
+            body.appendChild(apply);
+            body.appendChild(status);
+        });
+
+        // 每次打开面板时刷新当前值
+        new MutationObserver(function () {
+            if (panel.classList.contains("on")) fill();
+        }).observe(panel, { attributes: true, attributeFilter: ["class"] });
+
+        return panel;
+    }
+
     // ---------- 启动 ----------
     function start() {
         var bar = el("div");
@@ -306,10 +417,51 @@
         var codexBtn = el("button", null, "图鉴");
         var treeBtn = el("button", null, "进化树");
         var statsBtn = el("button", null, "加点");
+        var settingsBtn = el("button", null, "设置");
         bar.appendChild(codexBtn);
         bar.appendChild(treeBtn);
         bar.appendChild(statsBtn);
+        bar.appendChild(settingsBtn);
         document.body.appendChild(bar);
+
+        // 设置面板 + L 键开关
+        var settingsPanel = buildSettings();
+        function toggleSettings() {
+            settingsPanel.classList.toggle("on");
+        }
+        settingsBtn.addEventListener("click", toggleSettings);
+        document.addEventListener("keydown", function (ev) {
+            if (ev.key !== "l" && ev.key !== "L") return;
+            var ae = document.activeElement;
+            if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return; // 正在输入名字时不触发
+            toggleSettings();
+        });
+
+        // 底部清场倒计时条（仅坦克大乱斗有回合，其他模式自动隐藏）
+        var roundBar = el("div");
+        roundBar.style.cssText = "position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:35;"
+            + "padding:6px 18px;border-radius:20px;font-size:14px;font-weight:bold;"
+            + "font-family:'Microsoft YaHei',sans-serif;background:rgba(20,20,42,.85);color:#ffde43;"
+            + "border:2px solid #44448a;display:none;pointer-events:none";
+        document.body.appendChild(roundBar);
+        setInterval(function () {
+            fetch("/api/solo-round").then(function (r) { return r.json(); }).then(function (info) {
+                if (!info) { roundBar.style.display = "none"; return; }
+                var m = Math.floor(info.secondsLeft / 60);
+                var s = info.secondsLeft % 60;
+                var t = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+                if (info.closing) {
+                    roundBar.textContent = "清场者合围中！还剩 " + t;
+                    roundBar.style.color = "#ff5a50";
+                    roundBar.style.borderColor = "#a03030";
+                } else {
+                    roundBar.textContent = "距清场 " + t;
+                    roundBar.style.color = info.secondsLeft <= 60 ? "#ff5a50" : "#ffde43";
+                    roundBar.style.borderColor = info.secondsLeft <= 60 ? "#a03030" : "#44448a";
+                }
+                roundBar.style.display = "block";
+            }).catch(function () {});
+        }, 1000);
 
         // 拉取协议 XOR 掩码（一键加点用）
         fetch("/api/xors").then(function (r) { return r.json(); }).then(function (cfg) {
@@ -325,7 +477,15 @@
         restartBtn.addEventListener("click", function () { spawnWithName(lastName + "(重新开始)"); });
         respawn.appendChild(keepBtn);
         respawn.appendChild(restartBtn);
+        respawn.style.display = "none";
         document.body.appendChild(respawn);
+
+        // 活着（游戏中）时隐藏，回到菜单/死亡界面（textInputContainer 显示）时弹出
+        setInterval(function () {
+            var container = document.getElementById("textInputContainer");
+            var menuVisible = !!(container && container.style.display !== "none");
+            respawn.style.display = menuVisible ? "flex" : "none";
+        }, 500);
 
         // 记住玩家名：从输入框实时读取
         var lastName = "";

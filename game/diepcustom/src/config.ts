@@ -124,13 +124,13 @@ function intEnv(name: string, fallback: number): number {
 }
 
 /** 场上维持的 AI 坦克数量 */
-export const soloBotCount = Math.max(0, Math.min(30, intEnv("BOT_COUNT", 25)));
+export const soloBotCount = Math.max(0, Math.min(60, intEnv("BOT_COUNT", 40)));
 
 /** 一局时长（tick，25 tick = 1 秒），默认 30 分钟：服务端启动即自动循环"30 分钟一局 → 清场 → 新一局" */
 export const soloRoundTicks = Math.max(25 * 60, intEnv("ROUND_TICKS", 25 * 60 * 30));
 
-/** 地图边长（正方形），默认 30000 */
-export const soloArenaSize = Math.max(15000, intEnv("ARENA_SIZE", 30000));
+/** 地图边长（正方形），默认 22300 = 原版 diep.io 地图大小 */
+export const soloArenaSize = Math.max(15000, intEnv("ARENA_SIZE", 22300));
 
 /** AI 坦克重生最小间隔（tick） */
 export const soloBotRespawnMinTicks = 25 * 5;

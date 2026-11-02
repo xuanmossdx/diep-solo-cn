@@ -62,12 +62,15 @@ export class BotSpawner {
         const ai = new BotBrain(tank, flow, diff);
         tank.inputs = ai.inputs;
 
+        // 团队模式由竞技场钩子分队（FFA 类模式默认无队伍）
+        arena.assignBotTeam(tank);
+
         return { tank, ai };
     }
 
-    /** 地图内随机出生点，避免出现在人类玩家 4000 单位范围内（最多尝试 24 次） */
+    /** 地图内随机出生点（按各模式自身地图大小），避免出现在人类玩家 4000 单位范围内（最多尝试 24 次） */
     private static findSpawnPosition(arena: ArenaEntity): { x: number; y: number } {
-        let pos = arena.findSpawnLocation(config.soloArenaSize, config.soloArenaSize);
+        let pos = arena.findSpawnLocation();
         const human = BotSpawner.findHuman(arena);
         if (!human) return pos;
 

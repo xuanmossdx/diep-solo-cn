@@ -394,11 +394,127 @@ Module.todo.push([() => {
     ];
 }, true]);
 
+/**
+ * 坦克大乱斗 · WASM 内置 UI 文案字节级汉化
+ *
+ * 原理：这些字符串（菜单/死亡结算/记分板等）硬编码在 WASM 数据段里，
+ * 客户端本来就会对下载的 WASM 做 WailParser 改写，这里在实例化前做
+ * 等长或更短的 UTF-8 字节替换（不足以空格补齐，不改变总长度）。
+ * 只替换 NUL 结尾的完整字符串内容，绝不越界。
+ */
+const WASM_TEXT_PATCHES = [
+    ["This is the tale of...", "坦克的传说..."],
+    ["You will spawn at level %d", "你将以 %d 级重生"],
+    ["(press enter to spawn)", "(按回车出生)"],
+    ["(they seem to prefer to keep an air of mystery about them)", "（它们似乎更愿意保持神秘）"],
+    ["You were killed by:", "击杀者:"],
+    ["An unnamed tank", "无名坦克"],
+    ["Score:", "得分"],
+    ["Level:", "等级"],
+    ["Time Alive:", "存活"],
+    ["(press enter to continue)", "(按回车继续)"],
+    ["%.1f FPS", "%.1f帧"],
+    ["Game starting in %d", "%d 秒后开始"],
+    ["Game mode", "模式"],
+    ["Scoreboard", "排行榜"],
+    ["Achievements", "成就"],
+    [" out of ", " / "],
+    ["unlocked.", "已解锁"],
+    ["Waiting for players...", "等待玩家中..."],
+    ["Ignore", "忽略"],
+    ["More games", "更多"],
+    ["%s players", "%s 人"],
+    ["Copy party link", "复制房间链接"],
+    ["Joining party...", "加入房间..."],
+    ["Invalid party ID", "无效的房间 ID"],
+    ["You're using an adblocker, please consider disabling it to support the game", "检测到广告拦截插件，建议关闭以支持本游戏"]
+];
+
+/**
+ * 成就 JSON 整体替换：
+ * WASM 数据段内嵌英文成就 JSON（成 就名/描述参与 MurmurHash2 计算解锁 hash），
+ * 用与服务端 Achievements.json 完全一致的中文 JSON 替换，保证两端 hash 一致。
+ * 中文 JSON 更短，尾部以空格填充（JSON.parse 忽略尾随空白）。
+ */
+function patchAchievementsJson(bytes) {
+    try {
+        const zhJson = window.ACHIEVEMENTS_ZH_JSON;
+        if (!zhJson) return;
+        const to = new TextEncoder().encode(zhJson);
+        const startMarker = '[{"name":"A moment to cherish forever"';
+        const from = new TextEncoder().encode(startMarker);
+        let start = -1;
+        for (let i = 0; i + from.length < bytes.length; ++i) {
+            let ok = true;
+            for (let j = 0; j < from.length; ++j) {
+                if (bytes[i + j] !== from[j]) { ok = false; break; }
+            }
+            if (ok) { start = i; break; }
+        }
+        if (start === -1) return;
+
+        // 括号平衡扫描（考虑字符串与转义）找到 JSON 数组闭合位置
+        let depth = 0, inStr = false, esc = false, end = -1;
+        for (let k = start; k < bytes.length; ++k) {
+            const c = bytes[k];
+            if (inStr) {
+                if (esc) esc = false;
+                else if (c === 0x5C) esc = true;
+                else if (c === 0x22) inStr = false;
+                continue;
+            }
+            if (c === 0x22) inStr = true;
+            else if (c === 0x5B) ++depth;
+            else if (c === 0x5D) {
+                if (--depth === 0) { end = k + 1; break; }
+            }
+        }
+        if (end === -1 || to.length > end - start) {
+            console.warn("achievement json patch skipped", start, end, to.length);
+            return;
+        }
+        for (let i = 0; i < to.length; ++i) bytes[start + i] = to[i];
+        for (let i = to.length; i < end - start; ++i) bytes[start + i] = 0x20; // 空格填充（JSON 尾随空白合法）
+    } catch (err) {
+        console.warn("achievement json patch failed", err);
+    }
+}
+
+function patchWasmText(bytes) {
+    try {
+        for (const [eng, zh] of WASM_TEXT_PATCHES) {
+            const from = new TextEncoder().encode(eng);
+            const to = new TextEncoder().encode(zh);
+            if (to.length > from.length) continue; // 安全兜底：绝不越界
+            let idx = bytes.indexOf(from[0]);
+            while (idx !== -1) {
+                let match = true;
+                for (let i = 1; i < from.length; ++i) {
+                    if (bytes[idx + i] !== from[i]) { match = false; break; }
+                }
+                if (match) {
+                    for (let i = 0; i < to.length; ++i) bytes[idx + i] = to[i];
+                    for (let i = to.length; i < from.length; ++i) bytes[idx + i] = 0x20; // 空格补齐
+                    idx += from.length;
+                } else {
+                    idx = bytes.indexOf(from[0], idx + 1);
+                }
+            }
+        }
+    } catch (err) {
+        console.warn("WASM text patch failed", err);
+    }
+    return bytes;
+}
+
 Module.todo.push([(dependency, servers, tanks) => {
     Module.status = "INSTANTIATE";
     Module.servers = servers;
     Module.tankDefinitions = tanks;
-    
+
+    dependency = patchWasmText(new Uint8Array(dependency));
+    patchAchievementsJson(dependency);
+
     const parser = new WailParser(new Uint8Array(dependency));
     
     // original function, we want to modify these
@@ -634,8 +750,68 @@ Module.todo.push([instance => {
     };
     // window.input & misc, see input.js
     window.setupInput();
+    // 运行时内存文案补丁（WASM 静态构造写入内存、文件数据段中不存在的字符串）
+    runtimeTextPatches();
     return [];
 }, false]);
+
+/**
+ * 运行时内存文案补丁：替换 WASM 运行期写入线性内存的英文 UI 字符串
+ * （如升级面板标题 Upgrades，由数据段分段重定位拼出，静态文件中搜不到）。
+ * 中文比原文短时以 NUL 结尾截断（安全：缩短 C 字符串无副作用）。
+ */
+function runtimeTextPatches() {
+    const rules = [["Upgrades", "升级"]].map(([eng, zh]) => ({
+        from: new TextEncoder().encode(eng),
+        to: new TextEncoder().encode(zh),
+        cachedOffset: -1
+    }));
+    const patchOne = (heap, rule, offset) => {
+        const { from, to } = rule;
+        for (let j = 0; j < to.length; ++j) heap[offset + j] = to[j];
+        for (let j = to.length; j <= from.length; ++j) heap[offset + j] = 0;
+        rule.cachedOffset = offset;
+    };
+    const matches = (heap, rule, offset) => {
+        const { from } = rule;
+        if (offset + from.length >= heap.length) return false;
+        for (let j = 0; j < from.length; ++j) {
+            if (heap[offset + j] !== from[j]) return false;
+        }
+        return true;
+    };
+    const patch = () => {
+        try {
+            const heap = Module.HEAPU8;
+            if (!heap) return;
+            for (const rule of rules) {
+                if (rule.cachedOffset >= 0) {
+                    if (matches(heap, rule, rule.cachedOffset)) {
+                        patchOne(heap, rule, rule.cachedOffset);
+                    } else {
+                        rule.cachedOffset = -1; // 被重新分配，重新扫描
+                    }
+                }
+                if (rule.cachedOffset >= 0) continue;
+                // 全堆扫描：'U' 命中后快速校验，找到后立即替换
+                let idx = heap.indexOf(rule.from[0]);
+                while (idx !== -1) {
+                    let ok = true;
+                    for (let j = 1; j < rule.from.length; ++j) {
+                        if (heap[idx + j] !== rule.from[j]) { ok = false; break; }
+                    }
+                    if (ok) { patchOne(heap, rule, idx); break; }
+                    idx = heap.indexOf(rule.from[0], idx + 1);
+                }
+            }
+        } catch (err) {
+            console.warn("runtime text patch failed", err);
+        }
+    };
+    // 游戏过程中 UI 字符串可能随面板重新分配，周期性兜底（缓存命中时近乎零开销）
+    setInterval(patch, 3000);
+    for (const delay of [0, 500, 2000]) setTimeout(patch, delay);
+}
 
 Module.todo.push([() => {
     window.Game = {

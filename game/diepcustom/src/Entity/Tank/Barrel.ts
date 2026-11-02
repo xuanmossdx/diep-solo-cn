@@ -17,6 +17,7 @@
 */
 
 import * as util from "../../util";
+import { soloSettings } from "../../soloSettings";
 
 import Bullet from "./Projectile/Bullet";
 import Trap from "./Projectile/Trap";
@@ -66,9 +67,16 @@ export class ShootCycle {
                 return;
             }
             // When it runs out of drones, dont shoot
-            if (typeof this.barrelEntity.definition.droneCount === "number" && this.barrelEntity.droneCount >= this.barrelEntity.definition.droneCount) {
-                this.pos = reloadTime;
-                return;
+            // 单机扩展：仅真人玩家的无人机上限应用倍率（L 键设置实时可调），AI 保持原版上限
+            const defMax = this.barrelEntity.definition.droneCount;
+            if (typeof defMax === "number") {
+                const cam = (this.barrelEntity.tank as unknown as { cameraEntity?: { getClient?: () => unknown } }).cameraEntity;
+                const isHuman = !!(cam && typeof cam.getClient === "function" && cam.getClient());
+                const maxDrones = Math.min(200, Math.round(defMax * (isHuman ? soloSettings.droneMult : 1)));
+                if (this.barrelEntity.droneCount >= maxDrones) {
+                    this.pos = reloadTime;
+                    return;
+                }
             }
         }
 
