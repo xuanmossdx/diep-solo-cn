@@ -323,7 +323,7 @@
 
         var multInput = mkInput("number", 0.5, 10, 0.5);
         var necroInput = mkInput("number", 0, 100, 1);
-        var shapeInput = mkInput("number", 0.5, 3, 0.5);
+        var shapeInput = mkInput("number", 0.5, 10, 0.5);
         var roundInput = mkInput("number", 5, 60, 5);
         var triInput = mkInput("checkbox");
         triInput.style.cssText = "width:22px;height:22px";
@@ -380,7 +380,7 @@
             row("死灵法师每管无人机上限（0 = 默认 11+装填，仅对真人自己生效）", stepper(necroInput, 1));
             row("死灵法师击杀三角形也转化（血量/攻击约 x6，默认开，AI 不受影响）", triInput);
             row("死灵法师击杀五边形也转化（血量/攻击约 x9，默认开，AI 不受影响）", pentInput);
-            row("资源（方块）数量倍率（0.5~3，全场生效，即时生效）", stepper(shapeInput, 0.5));
+            row("资源（方块）数量倍率（0.5~10，全场生效，即时生效）", stepper(shapeInput, 0.5));
             row("清场回合时长·分钟（5~60，坦克大乱斗专用，下一局生效）", stepper(roundInput, 5));
 
             var applyRow = el("div");

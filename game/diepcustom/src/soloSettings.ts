@@ -75,7 +75,7 @@ export function updateSoloSettings(patch: SoloSettingsPatch): string {
     }
 
     if (typeof patch.shapeMult === "number" && isFinite(patch.shapeMult)) {
-        soloSettings.shapeMult = Math.min(3, Math.max(0.5, patch.shapeMult));
+        soloSettings.shapeMult = Math.min(10, Math.max(0.5, patch.shapeMult));
         msgs.push(`资源数量倍率 x${soloSettings.shapeMult}`);
     }
 

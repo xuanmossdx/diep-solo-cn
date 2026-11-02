@@ -138,13 +138,10 @@ export class BotBrain extends AI {
         // —— 状态机 ——
         let moveX = 0, moveY = 0;
 
-        // —— 趋利避害：敌方分数与等级明显高于自己且非残血 → 回避。
-        // 撞击/强攻流天生莽，低难度（不卡距离的）笨 bot 不懂怕，其余流派都怕更强的 ——
-        const ownCam = (this.owner as TankBody).cameraEntity?.cameraData.values;
-        const enemyCam = enemy ? (enemy as TankBody).cameraEntity?.cameraData.values : null;
-        const enemyStronger = !!(ownCam && enemyCam && enemyCam.score > ownCam.score * 1.5 && enemyCam.level > ownCam.level);
-        const avoidEnemy = !!enemy && enemyStronger && !this.isWounded(enemy)
-            && this.flow.special !== "ram" && this.flow.key !== "assault" && this.diff.keepDistance;
+        // —— 趋利避害（优先级：保活 > 发育 > 杀人，杀人只是为了刷分发育）——
+        // 打得过才打：敌方分数/等级明显更高，或视野内无人机海庞大 → 一律回避（残血也不例外）；
+        // 撞击/强攻流天生莽（容忍更高差距），低难度 bot 不做判断
+        const avoidEnemy = !!enemy && this.isEnemyTooStrong(enemy);
 
         if (this.brainState === BrainState.retreat) {
             // 远离最近威胁 + 保持还击
@@ -350,10 +347,59 @@ export class BotBrain extends AI {
         }
     }
 
-    /** 残血判定：血量低于 50% 的坦克视为可追击的猎物 */
+    /** 残血判定：血量低于 50% 的坦克视为可追击的猎物（前提是打得过） */
     private isWounded(e: ObjectEntity): boolean {
         const h = e.healthData ? e.healthData.values : null;
         return !!h && h.maxHealth > 0 && h.health / h.maxHealth < 0.5;
+    }
+
+    /**
+     * 敌我强弱判断（保活优先，打不过就跑）：
+     * - 敌方分数显著更高且等级不低于自己
+     * - 或等级高出一大截
+     * - 或视野内该敌人名下随从（无人机/工厂兵等）形成数量优势，而自己不是无人机系
+     * 撞击/强攻流天生莽：容忍更高差距；低难度（keepDistance=false）bot 不做判断
+     */
+    private isEnemyTooStrong(enemy: ObjectEntity): boolean {
+        if (!this.diff.keepDistance) return false; // 低难度：不懂怕
+
+        const own = (this.owner as TankBody).cameraEntity?.cameraData.values;
+        const ec = (enemy as TankBody).cameraEntity?.cameraData.values;
+        if (!own || !ec) return false;
+
+        const brave = this.flow.special === "ram" || this.flow.key === "assault";
+        if (ec.score > own.score * (brave ? 2.5 : 1.3) && ec.level >= own.level) return true;
+        if (ec.level >= own.level + (brave ? 15 : 8)) return true;
+        if (this.flow.special !== "drone" && this.countEnemyMinions(enemy) >= 5) return true;
+
+        return false;
+    }
+
+    /**
+     * 视野内某敌人名下的随从数量（无人机/工厂兵等）。
+     * 随从的 relationsData.owner 指向敌人本体；用 maxHealth >= 10 过滤掉子弹（子弹血量个位数）。
+     */
+    private countEnemyMinions(enemy: ObjectEntity): number {
+        const ePos = enemy.positionData.values;
+        const entities = this.game.entities.collisionManager.retrieve(ePos.x, ePos.y, this.viewRange, this.viewRange);
+
+        let count = 0;
+        for (let i = 0; i < entities.data.length; ++i) {
+            let chunk = entities.data[i];
+            while (chunk) {
+                const bitValue = chunk & -chunk;
+                const bitIdx = 31 - Math.clz32(bitValue);
+                chunk ^= bitValue;
+                const id = 32 * i + bitIdx;
+
+                const ent = this.game.entities.inner[id];
+                if (!ent || ent.hash === 0 || !ObjectEntity.isObject(ent)) continue;
+                if (ent.relationsData.values.owner !== enemy) continue;
+                if (!ent.healthData || ent.healthData.values.maxHealth < 10) continue; // 子弹不算数
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
