@@ -1,0 +1,13 @@
+# 依赖与构建产物
+node_modules/
+game/diepcustom/node_modules/
+game/diepcustom/lib/
+lib/
+
+# 日志
+server-log*.txt
+*.log
+
+# 系统文件
+Thumbs.db
+.DS_Store
