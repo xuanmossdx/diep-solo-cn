@@ -1109,8 +1109,12 @@ class ASMConsts {
     }
 
     static focusCanvas() {
+        // 单机扩展：焦点在中文覆盖层面板（设置/图鉴/加点等）的控件上时不抢焦点。
+        // WASM 会频繁调用 focusCanvas，原逻辑会把刚点进输入框的焦点立刻抢回画布，导致无法手动输入数值。
+        const ae = document.activeElement;
+        if (ae && ae.closest && ae.closest(".tldc-panel")) return;
         const canvas = document.getElementById("canvas");
-        if(document.activeElement && document.activeElement !== canvas) document.activeElement.blur()
+        if(ae && ae !== canvas) ae.blur()
         canvas.focus();
     }
 
