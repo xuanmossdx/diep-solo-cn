@@ -101,6 +101,20 @@
         { name: "粉碎系（撞击近战）", root: 36 }
     ];
 
+    /** 加点属性：名称与 TankDefinitions.json 汉化后的 stats[].name 一致，statId = 服务端 Stat 枚举序号 */
+    var STATS_GUIDE = [
+        { id: 0, name: "移动速度", desc: "坦克跑得更快。追杀、逃跑、躲弹幕全靠它；粉碎者/加速器流派的核心属性。" },
+        { id: 1, name: "装填", desc: "炮管再装填更快，单位时间打出的子弹更多，直接提升输出。" },
+        { id: 2, name: "子弹伤害", desc: "每发子弹伤害更高；无人机/发射物的攻击力也随之提升。" },
+        { id: 3, name: "穿透", desc: "子弹更\"耐撞\"：能连续穿过更多敌人和方块后才消失。" },
+        { id: 4, name: "子弹速度", desc: "子弹飞得更快更远，打移动目标和远距离目标更容易命中。" },
+        { id: 5, name: "身体伤害", desc: "用身体撞击敌人时造成的伤害；近战撞击流的核心属性。" },
+        { id: 6, name: "生命上限", desc: "血条更长，更能扛伤害。所有流派都值得点一些。" },
+        { id: 7, name: "生命恢复", desc: "脱战后回血更快；配合生命上限提升续航。" }
+    ];
+    var statXor = 0;
+    var xorsLoaded = false;
+
     var SPECIAL_IDS = [0, 16, 27, 45, 46, 47]; // 基础坦克 + 地图特殊单位
     var treeData = null; // {id: {def, children: []}}
     var parentOf = {};
@@ -239,6 +253,51 @@
         pressEnter();
     }
 
+    // ---------- 一键加点（标准 StatUpgrade 包，服务端校验合法性） ----------
+    function findSocket() {
+        try {
+            var socks = window.Module && window.Module.cp5 && window.Module.cp5.sockets;
+            if (!socks) return null;
+            for (var i = 0; i < socks.length; ++i) {
+                if (socks[i] && socks[i].readyState === 1) return socks[i];
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function sendStatUpgrade(statId) {
+        if (!xorsLoaded) return;
+        var sock = findSocket();
+        if (!sock) return;
+        // ServerBound.StatUpgrade = 0x3，载荷 vi(statId ^ statXor)，小整数单字节即可
+        sock.send(new Uint8Array([0x03, (statId ^ statXor) & 0x7f]));
+    }
+
+    function buildStatsGuide() {
+        return buildPanel("加点说明（升级获得点数，点\"+\"分配）", function (body) {
+            var note = el("p", null, "每升 1 级获得 1 点；每项最多 10 点（部分坦克个别项为 0 点不可加）。下方\"+\"与游戏内加号等效，需有可用点数。");
+            note.style.cssText = "color:#9d9dc8;font-size:12px;margin-bottom:10px";
+            body.appendChild(note);
+
+            STATS_GUIDE.forEach(function (stat) {
+                var row = el("div", "tldc-card");
+                row.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:8px";
+                var plus = el("button", null, "+");
+                plus.style.cssText = "min-width:44px;min-height:44px;font-size:22px;font-weight:bold;background:#8ac255;color:#222;border:0;border-radius:10px;cursor:pointer";
+                plus.addEventListener("click", function () { sendStatUpgrade(stat.id); });
+                var text = el("div");
+                var title = el("h4", null, stat.name);
+                title.style.margin = "0 0 4px";
+                text.appendChild(title);
+                text.appendChild(el("p", null, stat.desc));
+                text.style.flex = "1";
+                row.appendChild(plus);
+                row.appendChild(text);
+                body.appendChild(row);
+            });
+        });
+    }
+
     // ---------- 启动 ----------
     function start() {
         var bar = el("div");
@@ -246,9 +305,17 @@
 
         var codexBtn = el("button", null, "图鉴");
         var treeBtn = el("button", null, "进化树");
+        var statsBtn = el("button", null, "加点");
         bar.appendChild(codexBtn);
         bar.appendChild(treeBtn);
+        bar.appendChild(statsBtn);
         document.body.appendChild(bar);
+
+        // 拉取协议 XOR 掩码（一键加点用）
+        fetch("/api/xors").then(function (r) { return r.json(); }).then(function (cfg) {
+            statXor = cfg.statXor;
+            xorsLoaded = true;
+        }).catch(function () {});
 
         var respawn = el("div");
         respawn.id = "tldc-respawn";
@@ -285,8 +352,10 @@
             var playable = defs.filter(function (d) { return d && d.id != null && SPECIAL_IDS.indexOf(d.id) === -1; });
             var codex = buildCodex(playable);
             var tree = buildTree();
+            var stats = buildStatsGuide();
             codexBtn.addEventListener("click", function () { codex.classList.add("on"); });
             treeBtn.addEventListener("click", function () { tree.classList.add("on"); });
+            statsBtn.addEventListener("click", function () { stats.classList.add("on"); });
         });
     }
 
