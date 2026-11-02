@@ -94,4 +94,15 @@
 | 构建产物 | tsc + tsup 全绿 | ✅ |
 | 长时内存观察 | 缩短为多轮短局验证（30 分钟长测由部署后 pm2 监控） | ✅ 无异常 |
 
-## P7 GitHub 上传（进行中）
+## P7 GitHub 上传（2026-11-02 完成）
+
+| 项 | 结果 |
+|---|---|
+| 仓库 | ✅ https://github.com/xuanmossdx/diep-solo-cn（PRIVATE，main 分支） |
+| 内容 | ✅ 根目录：.gitignore / README.md / docs/（设计稿+计划+测试日志+工具脚本）/ game/diepcustom（含全部改造）/ 启动游戏.bat |
+| 文件数 | 132 个，node_modules/lib/日志已忽略 |
+| 提交历史 | P1-P2 / P3 / P4 / P5 / P6 / (本次) 共 5 个节点 commit |
+
+**P8（用户执行）**：确认 GitHub 内容可拉取后，手动删除 `D:/aaa/diep-solo-cn` 整个文件夹即可（云端已有全部内容）。
+
+**遗留（可选迭代）**：①WASM 升级按钮仍为英文坦克名（内存注入有风险，用图鉴对照）；②手机真机触屏验收待用户执行；③"diep.io X players"小地图字样为 WASM 内置文案未改；④开发服务器仍在 8180 端口运行（任务栏 diep-server 窗口可关闭）。
