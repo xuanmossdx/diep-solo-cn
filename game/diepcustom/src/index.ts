@@ -44,6 +44,10 @@ const PORT = config.serverPort;
 const ENABLE_API = config.enableApi && config.apiLocation;
 const ENABLE_CLIENT = config.enableClient && config.clientLocation && fs.existsSync(config.clientLocation);
 
+// 单机兜底：任何未捕获异常只记日志，不让整个服务器进程消失（挂机时尤其致命）
+process.on("uncaughtException", err => util.log("[uncaughtException] " + (err && err.stack || err)));
+process.on("unhandledRejection", err => util.log("[unhandledRejection] " + String(err)));
+
 if (ENABLE_API) util.log(`Rest API hosting is enabled and is now being hosted at /${config.apiLocation}`);
 if (ENABLE_CLIENT) util.log(`Client hosting is enabled and is now being hosted from ${config.clientLocation}`);
 

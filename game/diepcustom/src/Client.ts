@@ -602,7 +602,9 @@ export default class Client {
             this.camera.cameraData.flags &= ~CameraFlags.showingDeathStats;
         }
 
-        if (tick >= this.lastPingTick + 60 * config.tps) {
+        // 单机放宽：原版 60 秒无心跳即踢出，后台标签页（rAF 暂停）会被误踢回主界面。
+        // 现放宽到 30 分钟，允许挂机；配合客户端的 setInterval 兜底心跳。
+        if (tick >= this.lastPingTick + 60 * 30 * config.tps) {
             return this.terminate();
         }
         
