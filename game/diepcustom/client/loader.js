@@ -1086,7 +1086,11 @@ class ASMConsts {
     }
 
     static enableTyping(left, top, width, height, enabled) {
-        window.setTyping(true);
+        // 单机扩展：覆盖层面板打开且焦点在面板控件上时，只更新样式不抢焦点，
+        // 否则名字输入框会立刻把面板输入框刚获得的焦点抢走，导致无法手动输入数值。
+        const ae = document.activeElement;
+        const panelHasFocus = !!(ae && ae.closest && ae.closest(".tldc-panel.on"));
+        window.setTyping(!panelHasFocus);
         Module.textInputContainer.style.display = "block";
         Module.textInputContainer.style.position = "absolute";
         Module.textInputContainer.style.left = window.unscale(left) + "px";
@@ -1097,8 +1101,8 @@ class ASMConsts {
         Module.textInput.style.fontSize = window.unscale(height * 0.9) + "px";
         Module.textInput.style.paddingLeft = "5px";
         Module.textInput.style.paddingRight = "5px";
-        Module.textInput.disabled = !enabled;
-        Module.textInput.focus();
+        Module.textInput.disabled = !enabled || panelHasFocus;
+        if (!panelHasFocus) Module.textInput.focus();
     }
 
     static disableTyping() {

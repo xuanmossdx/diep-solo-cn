@@ -97,6 +97,14 @@ export class BotBrain extends AI {
     }
 
     public tick(tick: number) {
+        // 实体或其相机已被删除（死亡/清理中）：只清指令不再决策，防止 No camera 崩溃
+        if (!Entity.exists(this.owner) || !(this.owner as TankBody).cameraEntity
+            || !Entity.exists((this.owner as TankBody).cameraEntity)) {
+            this.inputs.movement.set({ x: 0, y: 0 });
+            this.inputs.flags = 0;
+            return;
+        }
+
         if (tick >= this.nextDecisionTick) {
             this.decide(tick);
             this.nextDecisionTick = tick + this.diff.decisionInterval;

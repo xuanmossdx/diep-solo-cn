@@ -252,7 +252,6 @@ app.listen(PORT, (success) => {
 });
 
 process.on("uncaughtException", (error) => {
+    // 单机版：记录日志并保持存活（此前 throw error 会导致整个进程退出，挂机时服务器悄悄消失）
     util.saveToLog("Uncaught Exception", '```\n' + error.stack + '\n```', 0xFF0000);
-
-    throw error;
 });

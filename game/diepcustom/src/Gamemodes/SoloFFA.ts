@@ -57,6 +57,8 @@ export default class SoloFFAArena extends ArenaEntity {
 
     /** 本局剩余 tick（时长可在设置菜单调整，resetRound 时读取最新值） */
     private roundTicks: number = soloSettings.roundMinutes * config.tps * 60;
+    /** 本局开始时的总时长 tick（/api/solo-round 的 roundSeconds 用，改设置只影响下一局） */
+    private roundTotalTicks: number = this.roundTicks;
     /** 是否处于清场合围阶段 */
     private closing: boolean = false;
     /** 合围阶段剩余 tick，归零后开新局 */
@@ -129,6 +131,7 @@ export default class SoloFFAArena extends ArenaEntity {
 
         this.botManager.reset();
         this.roundTicks = soloSettings.roundMinutes * config.tps * 60;
+        this.roundTotalTicks = this.roundTicks;
         this.lastAnnouncedSecond = -1;
 
         // 清场清零所有人等级：玩家下一次复活从 1 级开始（bot 已由 BotManager.reset 全部从零生成）
@@ -146,7 +149,7 @@ export default class SoloFFAArena extends ArenaEntity {
         return {
             closing: this.closing,
             secondsLeft: Math.ceil((this.closing ? this.closingTicks : this.roundTicks) / config.tps),
-            roundSeconds: soloSettings.roundMinutes * 60
+            roundSeconds: Math.ceil(this.roundTotalTicks / config.tps)
         };
     }
 
